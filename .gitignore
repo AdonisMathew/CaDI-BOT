@@ -1,0 +1,10 @@
+# Track Baileys
+baileys-track/node_modules/
+baileys-track/.env
+baileys-track/auth_info_baileys/
+
+# Contenido que no va a GitHub
+docs/demo-conversation.md
+
+# General
+*.log

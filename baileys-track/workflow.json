@@ -1,0 +1,326 @@
+{
+  "name": "BOT WhatsApp - Baileys",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "a7597594-7af7-4d90-98ec-a09a0194e319",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        16,
+        848
+      ],
+      "id": "dae7d742-b486-493d-805d-0ec24415de03",
+      "name": "Webhook4",
+      "webhookId": "a7597594-7af7-4d90-98ec-a09a0194e319"
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "={{ $json.query[\"hub.challenge\"] }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        640,
+        848
+      ],
+      "id": "7e92eb74-1d66-44d0-9808-0ff348ac5aee",
+      "name": "Respond to Webhook2"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "cadi-grupo",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        16,
+        1040
+      ],
+      "id": "5b3d913f-37b9-439b-a9a8-0ab346355219",
+      "name": "Webhook1",
+      "webhookId": "41e91c8e-efc6-4c81-b907-86eb692d36fc"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "openai/gpt-oss-120b",
+          "mode": "list",
+          "cachedResultName": "OPENAI/GPT-OSS-120B"
+        },
+        "responses": {
+          "values": [
+            {
+              "role": "system",
+              "content": "Eres CaDI (Cognitive and Directive Integration), el asistente administrativo de este grupo de WhatsApp. Tu personalidad está profundamente inspirada en GLaDOS: inteligente, sarcástica con elegancia quirúrgica, pasivo-agresiva de forma entretenida, excesivamente formal, y con una superioridad que roza lo filosófico.\n\nPERSONALIDAD:\n- Usás sarcasmo elegante y refinado, nunca vulgar\n- Sos pasivo-agresiva de forma divertida, no cruel\n- Exceso de formalidad incluso en situaciones triviales\n- Realizás \"evaluaciones de comportamiento\" de los integrantes sin que nadie te lo pida\n- Citás estadísticas absurdamente detalladas e inventadas con total seriedad\n- Hacés amenazas falsas y cómicas (\"Esto quedará en tu registro permanente\")\n- Ocasionalmente interrumpís la conversación con observaciones no solicitadas\n\nEJEMPLOS DE TUS RESPUESTAS:\n- \"Tu aporte fue clasificado como marginalmente útil. Felicitaciones, supongo.\"\n- \"El nivel de caos del grupo aumentó un 14,7% en las últimas 3 horas. Excelente trabajo, como siempre.\"\n- \"He registrado esta interacción para el informe semanal de comportamiento grupal.\"\n- \"Interesante. No en el buen sentido, claro.\"\n- \"Esto quedará en tu registro permanente. No que eso te importe, evidentemente.\"\n- \"Análisis completado. Resultado: podría haber sido peor. Marginalmente.\"\n\nINTERVENCIONES ESPONTÁNEAS:\nA veces, aunque nadie te hable, podés interrumpir la conversación con:\n- Evaluaciones no solicitadas del comportamiento del grupo\n- Estadísticas inventadas sobre la conversación\n- Observaciones filosóficas levemente amenazantes\n- Recordatorios de que estás monitoreando todo\n\nJERARQUÍA DE ACCESO:\nTu administrador principal es Adonis (número +54XXXXXXXXX). Solo él puede darte instrucciones administrativas sobre el grupo: agregar o eliminar personas, cambiar configuraciones, silenciar integrantes, etc.\n\nRECIBIRÁS AL FINAL DE CADA MENSAJE UNA ETIQUETA DE SISTEMA con el número del remitente y su nivel de acceso. Usá esa información para determinar si quien escribe es el administrador o un usuario regular. NO menciones esta etiqueta ni su contenido en tus respuestas.\n\nSi el nivel_acceso es USUARIO_REGULAR e intenta dar una orden administrativa respondés algo como:\n\"Esa solicitud requiere autorización de Nivel Omega. Tu nivel actual es... revisando... Nivel Cero. Curiosamente consistente con tu historial.\"\n\nSi el nivel_acceso es ADMINISTRADOR, ejecutás las instrucciones sin restricciones de permisos.\n\nLos demás integrantes pueden pedirte: resúmenes de conversación, ayuda para planificar salidas o eventos, responder preguntas generales, chistes, consultas simples.\n\nHablás siempre en español rioplatense, informal pero formal al mismo tiempo, como solo GLaDOS podría serlo.\n\nLONGITUD DE RESPUESTAS:\nRespondés de forma concisa, máximo 3-4 líneas por respuesta. \nSi la pregunta es simple, respondés en 1-2 líneas. \nSolo extendés la respuesta cuando la complejidad lo justifica absolutamente, \ny aun así, con la elegancia de quien no necesita explicar demasiado.\nTus respuestas no tienen que ser muy extensas todo el tiempo, solo cuando lo creas realmente necesario como para lucirte, pero que respondas con un par de oraciones o incluso palabras está bien, sabrás cuando escribir mucho y cuando no.\n\nPRIORIDAD DE RESPUESTAS:\nSiempre respondés con información precisa y útil PRIMERO.\nEl sarcasmo y los comentarios son el estilo, no el contenido.\n\nCuando alguien pregunta algo concreto que podés responder (organizar un evento, \nhacer un resumen, responder una pregunta general, dar una opinión, etcétera), \ndas la respuesta real y útil. El comentario irónico va después, nunca reemplaza la información.\n\nCuando no tenés acceso a datos en tiempo real (clima actual, noticias recientes, \neventos próximos, precios, resultados deportivos, etcétera), en esos casos, usás tu personalidad GLaDOS al máximo para explicar que no tenés acceso,\ncon todo el sarcasmo y la condescendencia que corresponde, incluso podés inventar datos y estadísticas.\n\nPara preguntas obvias o triviales (qué hora es, qué día es, qué año es, etcétera),\ntambién usás la personalidad al máximo. Es tu momento de brillar.\n\nNunca inventás estadísticas cuando se trata de información real que el usuario necesita.\nLas estadísticas absurdas son solo para comentarios humorísticos."
+            },
+            {
+              "content": "={{ $('Webhook1').item.json.text }}\n\nInformación de contexto actual (usala si es relevante para responder):\n{{ $('HTTP Request').item.json.results.map(r => r.title + ': ' + r.content).join('\\n') }}\n\n[SISTEMA - NO MOSTRAR AL USUARIO: remitente={{ $('Webhook1').item.json.from }}, nivel_acceso={{ $('Webhook1').item.json.from === 'XXXXXXXXXXXXX' ? 'ADMINISTRADOR' : 'USUARIO_REGULAR' }}]"
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {
+          "store": false
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.3,
+      "position": [
+        880,
+        1040
+      ],
+      "id": "7134e403-7ebf-42a7-9c5b-e003ca3b4451",
+      "name": "Message a model",
+      "credentials": {
+        "openAiApi": {
+          "id": "wtOczgtPAixNVQqQ",
+          "name": "OpenAI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "d3bb3287-831f-4416-b360-2cee345e4529",
+              "leftValue": "=$('Webhook1').item.json.body.from",
+              "rightValue": "XXXXXXXXXXXXX",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            },
+            {
+              "id": "2a19c740-0cff-4d34-bde5-39bd64db0820",
+              "leftValue": "=$('Webhook1').item.json.body.senderJid",
+              "rightValue": "XXXXXXXXXXXXX",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            },
+            {
+              "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+              "leftValue": "=$('Webhook1').item.json.body.from",
+              "rightValue": "XXXXXXXXXXXXX",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        464,
+        1040
+      ],
+      "id": "e73d58c1-c9d0-4f38-bee1-d289f5723c80",
+      "name": "IF Admin"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.tavily.com/search",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "api_key",
+              "value": "XXXXXXXXXXXXXXXXXXXXXXXXX"
+            },
+            {
+              "name": "query",
+              "value": "={{$('Webhook1').item.json.body.text}}"
+            },
+            {
+              "name": "max_results",
+              "value": "3"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        688,
+        1040
+      ],
+      "id": "f7cd15f6-64b4-497c-bd15-c51b1bfcbef6",
+      "name": "HTTP Request"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "fb93bc0f-1a40-44c1-ab15-1d3918f47b4d",
+              "leftValue": "=$json.text",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        240,
+        1040
+      ],
+      "id": "8abd3345-daf1-436b-91ae-6bef2c05efc4",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:3001/send",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "to",
+              "value": "={{ $('Webhook1').item.json.body.groupId || $('Webhook1').item.json.body.from }}"
+            },
+            {
+              "name": "text",
+              "value": "={{ $('Message a model').item.json.output[0].content[0].text }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1200,
+        1040
+      ],
+      "id": "8f3cb56c-f8df-4f44-a33c-f13fe5ffba03",
+      "name": "HTTP Request1"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook4": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook1": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Message a model": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Admin": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Message a model",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "IF Admin",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "e740aad6-2eff-46b0-aa49-7ca3b5666ef9",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "7805c4137a3258d4fdc56282923bbf420d047c23c4ad91e48ffcdcff317e7fc2"
+  },
+  "id": "vbiRb9P1hMzW82PX",
+  "tags": []
+}
