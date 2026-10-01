@@ -37,7 +37,7 @@ en [`baileys-track/README.md`](./baileys-track/README.md)).
 ```
 CaDI/
 ├── cloud-api-track/     → Versión 1: WhatsApp Business Cloud API + n8n (operativa, 1 a 1)
-├── baileys-track/       → Versión 2: Baileys + n8n (en construcción, para uso en grupo)
+├── baileys-track/       → Versión 2: Baileys + n8n (operativa 1 a 1, en camino al grupo)
 └── docs/
     └── LEARNINGS.md      → Problemas encontrados y cómo se resolvieron, de ambos tracks
 ```
@@ -57,7 +57,7 @@ CaDI/
 | Track | Estado |
 |---|---|
 | Cloud API | ✅ Operativo — responde 1 a 1, distingue admin/no-admin, con búsqueda web |
-| Baileys | 🚧 Código base listo, pendiente de vinculación con un número dedicado |
+| Baileys | ✅ Operativo — número dedicado vinculado, responde 1 a 1 con búsqueda web; falta probarlo dentro del grupo |
 
 ### Funcionalidades
 
@@ -73,6 +73,8 @@ CaDI/
 **Pendientes**
 - Intervenciones autónomas de CaDI sin ser mencionada (Schedule Trigger)
 - Integración en un grupo real de WhatsApp (en desarrollo — track Baileys)
+- Búsqueda web solo cuando hace falta (hoy el track Baileys busca en cada mensaje)
+- Reconocimiento de admin en el track Baileys (WhatsApp manda el remitente como `@lid` en vez del número real)
 
 ## Nota honesta sobre el track de Baileys
 
