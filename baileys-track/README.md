@@ -60,36 +60,44 @@ teléfono — el chip nuevo no necesita seguir insertado físicamente.
 
 ## 5. Conectar con n8n
 
-En n8n, armá (o adaptá) un workflow con:
+Importá [`workflow.json`](./workflow.json) en n8n. La cadena es:
 
-- Un **Webhook** nuevo en el path `/webhook/cadi-grupo` (o el que hayas
-  puesto en `N8N_WEBHOOK_URL` del `.env`) — este bridge le va a hacer POST
-  ahí cada vez que llegue un mensaje real.
-- El resto de la cadena (`If → IF Admin → HTTP Request Tavily → Message a
-  model`) se puede reutilizar del workflow que ya tenés — el payload que
-  manda este bridge tiene esta forma:
+```
+Webhook1 (/webhook/cadi-grupo) → If (hay texto) → AI Agent → HTTP Request1 (/send)
+                                                    ├─ Groq Chat Model (openai/gpt-oss-120b)
+                                                    └─ Buscar en internet (Tavily)
+```
+
+- **Webhook1** recibe el POST que hace este bridge en `/webhook/cadi-grupo`
+  (o el path que hayas puesto en `N8N_WEBHOOK_URL` del `.env`). n8n envuelve
+  el JSON bajo `body`, así que los campos se leen como `$json.body.text`.
+- **AI Agent** tiene la personalidad de CaDI en su *System Message* y decide
+  solo si hace falta buscar en internet. **Buscar en internet** es Tavily
+  envuelto como herramienta: su *Tool Description* le dice al modelo cuándo
+  usarla, y la consulta (`query`) la arma el propio modelo con `$fromAI()`.
+  Así CaDI solo busca cuando la pregunta necesita datos actuales.
+- **HTTP Request1** manda la respuesta (`$('AI Agent').item.json.output`)
+  a `http://localhost:3001/send`.
+
+Después de importar, cargá tu API key de Tavily en el nodo **Buscar en
+internet**, tu número de admin en el prompt del **AI Agent**, y elegí la
+credencial de Groq en **Groq Chat Model**.
+
+El payload que manda este bridge tiene esta forma (`from` es el JID completo
+del remitente; dentro de grupos puede llegar como `...@lid` en vez de
+`...@s.whatsapp.net`):
 
 ```json
 {
   "isGroup": true,
   "groupId": "120363...@g.us",
-  "from": "549XXXXXXXXXX",
+  "from": "549XXXXXXXXXX@s.whatsapp.net",
   "senderJid": "549XXXXXXXXXX@s.whatsapp.net",
   "text": "Hola CaDI",
   "messageId": "...",
   "timestamp": 1234567890,
   "pushName": "Matías"
 }
-```
-
-  Ajustá el nodo **IF Admin** para comparar contra `from` en vez del campo
-  `entry[0].changes[0].value.messages[0].from` de Meta.
-
-- El nodo final, en vez de pegarle a la Graph API de Meta, hace un
-  **HTTP Request POST** a `http://localhost:3001/send` con body:
-
-```json
-{ "to": "{{ $json.groupId || $json.from }}", "text": "la respuesta de CaDI" }
 ```
 
 ## Endpoints disponibles
