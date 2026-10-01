@@ -73,7 +73,7 @@ CaDI/
 **Pendientes**
 - Intervenciones autónomas de CaDI sin ser mencionada (Schedule Trigger)
 - Integración en un grupo real de WhatsApp (en desarrollo — track Baileys)
-- Reconocimiento de admin en el track Baileys (WhatsApp manda el remitente como `@lid` en vez del número real)
+- Acciones de administrador sobre el grupo (sacar participantes, cambiar ajustes, encuestas), solo para admins
 
 ## Nota honesta sobre el track de Baileys
 

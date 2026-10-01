@@ -18,6 +18,7 @@ const N8N_WEBHOOK_URL = process.env.N8N_WEBHOOK_URL || 'http://localhost:5678/we
 const BRIDGE_PORT = process.env.BRIDGE_PORT || 3001;
 const USE_PAIRING_CODE = process.env.USE_PAIRING_CODE === 'true';
 const PAIRING_PHONE_NUMBER = process.env.PAIRING_PHONE_NUMBER || ''; // ej: 5493811234567 (sin +, sin espacios)
+const BOT_NAME = process.env.BOT_NAME || 'CaDI';
 
 const logger = pino({ level: 'info' });
 
@@ -38,6 +39,23 @@ function toGroupJid(groupIdOrJid) {
 // Extrae el número "pelado" de un JID, para que n8n lo compare fácil en el nodo IF Admin
 function jidToNumber(jid) {
   return jid.split('@')[0].split(':')[0];
+}
+
+// Saca el sufijo de dispositivo: "549XXX:1@s.whatsapp.net" -> "549XXX@s.whatsapp.net"
+function normalizeJid(jid) {
+  if (!jid) return '';
+  const [user, server] = jid.split('@');
+  return `${user.split(':')[0]}@${server}`;
+}
+
+// Lista de admins de CaDI, desde el .env (nunca en el código ni en GitHub)
+const ADMIN_JIDS = (process.env.ADMIN_JIDS || '')
+  .split(',')
+  .map((j) => normalizeJid(j.trim()))
+  .filter(Boolean);
+
+if (ADMIN_JIDS.length === 0) {
+  console.warn('⚠️  ADMIN_JIDS está vacío en el .env: nadie va a ser reconocido como admin.');
 }
 
 // ---------- Arranque de la conexión con WhatsApp ----------
@@ -117,12 +135,39 @@ async function startBridge() {
 
       if (!text) continue; // por ahora ignoramos audios/imágenes sin texto
 
+      // --- ¿El mensaje es para CaDI? ---
+      // CaDI puede aparecer con su número o con su @lid, según cómo WhatsApp
+      // direccione el grupo. Comparamos solo la parte de usuario (antes de @ y :).
+      const me = sock.authState.creds.me || {};
+      const botUsers = [me.id, me.lid].filter(Boolean).map(jidToNumber);
+      const isBot = (jid) => !!jid && botUsers.includes(jidToNumber(jid));
+
+      const contextInfo =
+        msg.message.extendedTextMessage?.contextInfo ||
+        msg.message.imageMessage?.contextInfo ||
+        {};
+      const mentionsBot = (contextInfo.mentionedJid || []).some(isBot); // la etiquetaron con @
+      const isReplyToBot = isBot(contextInfo.participant);               // respondieron a un mensaje suyo
+      const mentionsName = new RegExp(`\\b${BOT_NAME}\\b`, 'i').test(text); // la nombraron
+      const addressedToBot = !isGroup || mentionsBot || isReplyToBot || mentionsName;
+
+      // Sacamos el "@numero" de CaDI del texto, para que el modelo no lo lea
+      const cleanText = botUsers
+        .reduce((t, u) => t.replaceAll(`@${u}`, ''), text)
+        .trim() || text;
+
+      const isAdmin = ADMIN_JIDS.includes(normalizeJid(senderJid));
+
+      console.log('addressedToBot:', addressedToBot, '| isAdmin:', isAdmin);
+
       const payload = {
         isGroup,
         groupId: isGroup ? remoteJid : null,
         from: senderJid,
         senderJid,
-        text,
+        text: cleanText,
+        addressedToBot,
+        isAdmin,
         messageId: msg.key.id,
         timestamp: msg.messageTimestamp,
         pushName: msg.pushName || null,
