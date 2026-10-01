@@ -65,7 +65,7 @@ CaDI/
 - Recepción y procesamiento de mensajes de WhatsApp
 - Respuestas generadas por IA con personalidad GLaDOS
 - System prompt configurable
-- Búsqueda web en tiempo real (Tavily)
+- Búsqueda web en tiempo real (Tavily), solo cuando la pregunta lo necesita (track Baileys)
 - Filtro de eventos de status
 - Webhook verificado y activo con Meta Cloud API
 - Filtro de permisos por número (admin vs. usuario regular)
@@ -73,7 +73,6 @@ CaDI/
 **Pendientes**
 - Intervenciones autónomas de CaDI sin ser mencionada (Schedule Trigger)
 - Integración en un grupo real de WhatsApp (en desarrollo — track Baileys)
-- Búsqueda web solo cuando hace falta (hoy el track Baileys busca en cada mensaje)
 - Reconocimiento de admin en el track Baileys (WhatsApp manda el remitente como `@lid` en vez del número real)
 
 ## Nota honesta sobre el track de Baileys
