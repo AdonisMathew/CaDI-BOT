@@ -25,8 +25,13 @@ tiene la 6.17.x. No actualizar a esa por las dudas.)
 cp .env.example .env
 ```
 
-Dejá `USE_PAIRING_CODE=false` para el método más simple (QR). No hace falta
-tocar nada más para arrancar.
+Dejá `USE_PAIRING_CODE=false` para el método más simple (QR).
+
+Cargá en `ADMIN_JIDS` los identificadores de los administradores de CaDI,
+separados por coma. Para obtenerlos, levantá el bridge, mandá un mensaje
+desde cada cuenta y copiá lo que aparece en la terminal como `senderJid:`
+(suele terminar en `@lid`). Esto vive solo en tu `.env`, que no se sube a
+GitHub.
 
 ## 3. Preparar el número nuevo (cuando tengas el chip)
 
@@ -63,7 +68,7 @@ teléfono — el chip nuevo no necesita seguir insertado físicamente.
 Importá [`workflow.json`](./workflow.json) en n8n. La cadena es:
 
 ```
-Webhook1 (/webhook/cadi-grupo) → If (hay texto) → AI Agent → HTTP Request1 (/send)
+Webhook1 (/webhook/cadi-grupo) → If (texto y es para CaDI) → AI Agent → HTTP Request1 (/send)
                                                     ├─ Groq Chat Model (openai/gpt-oss-120b)
                                                     └─ Buscar en internet (Tavily)
 ```
@@ -71,6 +76,10 @@ Webhook1 (/webhook/cadi-grupo) → If (hay texto) → AI Agent → HTTP Request1
 - **Webhook1** recibe el POST que hace este bridge en `/webhook/cadi-grupo`
   (o el path que hayas puesto en `N8N_WEBHOOK_URL` del `.env`). n8n envuelve
   el JSON bajo `body`, así que los campos se leen como `$json.body.text`.
+- **If** deja pasar solo los mensajes con texto que son para CaDI
+  (`addressedToBot`). En grupos, eso es cuando la etiquetan con @, cuando
+  responden a un mensaje suyo o cuando la nombran (`BOT_NAME`). En privado,
+  siempre.
 - **AI Agent** tiene la personalidad de CaDI en su *System Message* y decide
   solo si hace falta buscar en internet. **Buscar en internet** es Tavily
   envuelto como herramienta: su *Tool Description* le dice al modelo cuándo
@@ -80,8 +89,11 @@ Webhook1 (/webhook/cadi-grupo) → If (hay texto) → AI Agent → HTTP Request1
   a `http://localhost:3001/send`.
 
 Después de importar, cargá tu API key de Tavily en el nodo **Buscar en
-internet**, tu número de admin en el prompt del **AI Agent**, y elegí la
-credencial de Groq en **Groq Chat Model**.
+internet** y elegí la credencial de Groq en **Groq Chat Model**.
+
+El nivel de acceso no lo decide el modelo: el bridge marca `isAdmin` según
+`ADMIN_JIDS`, y el prompt del **AI Agent** solo lee ese dato. Así nadie
+puede convencer a CaDI de que es admin escribiéndolo en el chat.
 
 El payload que manda este bridge tiene esta forma (`from` es el JID completo
 del remitente; dentro de grupos puede llegar como `...@lid` en vez de
@@ -94,6 +106,8 @@ del remitente; dentro de grupos puede llegar como `...@lid` en vez de
   "from": "549XXXXXXXXXX@s.whatsapp.net",
   "senderJid": "549XXXXXXXXXX@s.whatsapp.net",
   "text": "Hola CaDI",
+  "addressedToBot": true,
+  "isAdmin": false,
   "messageId": "...",
   "timestamp": 1234567890,
   "pushName": "Matías"
