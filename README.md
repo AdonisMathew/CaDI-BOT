@@ -45,7 +45,9 @@ CaDI/
 ## Stack técnico
 
 - **Orquestación**: [n8n](https://n8n.io/) (self-hosted)
-- **Modelo de lenguaje**: Groq API — LLaMA 3.3 70B Versatile
+- **Modelo de lenguaje** (vía Groq API):
+  - Track 1 (Cloud API): LLaMA 3.3 70B Versatile
+  - Track 2 (Baileys): `openai/gpt-oss-120b`
 - **Búsqueda web en tiempo real**: Tavily API
 - **Track 1**: WhatsApp Business Cloud API (Meta) + ngrok
 - **Track 2**: [Baileys](https://baileys.wiki/) + Express

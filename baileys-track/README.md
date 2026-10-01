@@ -1,7 +1,8 @@
 # CaDI — Baileys Bridge
 
 Puente entre WhatsApp (protocolo no oficial, vía Baileys) y n8n. No reemplaza
-a n8n: n8n sigue siendo el cerebro (Groq, Tavily, personalidad de CaDI). Este
+a n8n: n8n sigue siendo el cerebro (Groq con el modelo `openai/gpt-oss-120b`,
+Tavily, personalidad de CaDI). Este
 script solo recibe y manda mensajes crudos de WhatsApp.
 
 ⚠️ Usa un protocolo no oficial. Viola los Términos de Servicio de WhatsApp y
