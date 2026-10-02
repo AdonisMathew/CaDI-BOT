@@ -218,7 +218,12 @@ async function startBridge() {
     console.log('\n========== /send ==========');
     console.log('Body recibido:', req.body);
 
-    const { to, text } = req.body;
+    const { to } = req.body;
+    // Red de seguridad: si el modelo repite la etiqueta interna de permisos, se borra antes de enviar
+    const text = String(req.body.text ?? '')
+      .replace(/\[\s*SISTEMA\b[^\]]*\]/g, '')
+      .replace(/[ \t]+\n/g, '\n')
+      .trim();
 
     console.log('TO recibido:', to);
     console.log('TEXT recibido:', text);
