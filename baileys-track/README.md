@@ -136,9 +136,17 @@ del remitente; dentro de grupos puede llegar como `...@lid` en vez de
 | `POST /group/poll` | `{ groupId, question, options, selectableCount }` | Manda una encuesta. `options`: array o string separado por `\|`, entre 2 y 12 |
 | `GET /health` | — | Chequeo de que el bridge está vivo |
 
-El bridge escucha solo en `127.0.0.1`: los endpoints no quedan expuestos a
-otras máquinas de tu red. Las acciones de grupo devuelven error si se llaman
-sin `groupId` (por ejemplo, desde un chat privado).
+El bridge escucha solo en tu compu (`127.0.0.1` y `::1`): los endpoints no
+quedan expuestos a otras máquinas de tu red.
+
+Los endpoints de grupo siempre responden HTTP 200 con `success` (true/false)
+y un `resultado` en texto (`HECHO: ...` o `NO SE REALIZÓ. Motivo: ...`). Es a
+propósito: si respondieran con un error HTTP, n8n lo trataría como una falla
+del nodo y el agente podría no enterarse del motivo, y terminar diciendo que
+la acción salió bien.
+
+En `/send`, cada `@número` del texto se manda como etiqueta real, así
+WhatsApp muestra el nombre de la persona en lugar del número.
 
 ## Recordatorios importantes
 
