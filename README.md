@@ -69,11 +69,12 @@ CaDI/
 - Filtro de eventos de status
 - Webhook verificado y activo con Meta Cloud API
 - Filtro de permisos por número (admin vs. usuario regular)
+- En grupos, CaDI responde solo cuando la etiquetan, la nombran o le responden un mensaje (track Baileys)
+- Acciones de administrador sobre el grupo, solo para admins: sacar participantes, cambiar quién escribe, encuestas (track Baileys)
 
 **Pendientes**
 - Intervenciones autónomas de CaDI sin ser mencionada (Schedule Trigger)
 - Integración en un grupo real de WhatsApp (en desarrollo — track Baileys)
-- Acciones de administrador sobre el grupo (sacar participantes, cambiar ajustes, encuestas), solo para admins
 
 ## Nota honesta sobre el track de Baileys
 

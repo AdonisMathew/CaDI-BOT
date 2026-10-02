@@ -68,9 +68,12 @@ teléfono — el chip nuevo no necesita seguir insertado físicamente.
 Importá [`workflow.json`](./workflow.json) en n8n. La cadena es:
 
 ```
-Webhook1 (/webhook/cadi-grupo) → If (texto y es para CaDI) → AI Agent → HTTP Request1 (/send)
-                                                    ├─ Groq Chat Model (openai/gpt-oss-120b)
-                                                    └─ Buscar en internet (Tavily)
+Webhook1 → If (texto y es para CaDI) → IF Admin ─┬─ true  → AI Agent Admin ─┐
+                                                 └─ false → AI Agent ───────┴→ HTTP Request1 (/send)
+
+AI Agent Admin: Groq Chat Model (Admin) + Buscar en internet (Admin)
+                + Sacar del grupo + Cambiar modo del grupo + Crear encuesta
+AI Agent:       Groq Chat Model + Buscar en internet
 ```
 
 - **Webhook1** recibe el POST que hace este bridge en `/webhook/cadi-grupo`
@@ -80,16 +83,24 @@ Webhook1 (/webhook/cadi-grupo) → If (texto y es para CaDI) → AI Agent → HT
   (`addressedToBot`). En grupos, eso es cuando la etiquetan con @, cuando
   responden a un mensaje suyo o cuando la nombran (`BOT_NAME`). En privado,
   siempre.
-- **AI Agent** tiene la personalidad de CaDI en su *System Message* y decide
+- **IF Admin** separa a los admins (`isAdmin`) del resto. Es la barrera de
+  seguridad: las herramientas de administración están conectadas **solo** al
+  **AI Agent Admin**. El **AI Agent** de usuarios comunes no las tiene, así
+  que aunque alguien engañe al modelo, no hay con qué ejecutar la acción.
+- **AI Agent** y **AI Agent Admin** tienen la personalidad de CaDI en su *System Message* y decide
   solo si hace falta buscar en internet. **Buscar en internet** es Tavily
   envuelto como herramienta: su *Tool Description* le dice al modelo cuándo
   usarla, y la consulta (`query`) la arma el propio modelo con `$fromAI()`.
   Así CaDI solo busca cuando la pregunta necesita datos actuales.
-- **HTTP Request1** manda la respuesta (`$('AI Agent').item.json.output`)
+- Las herramientas de admin llaman a los endpoints del bridge. El grupo
+  (`groupId`) y las personas a sacar (`mentionedJids`, los etiquetados con @)
+  salen del mensaje, no del modelo: CaDI no puede inventar a quién sacar.
+- **HTTP Request1** manda la respuesta del agente que haya corrido (`$json.output`)
   a `http://localhost:3001/send`.
 
 Después de importar, cargá tu API key de Tavily en el nodo **Buscar en
-internet** y elegí la credencial de Groq en **Groq Chat Model**.
+internet** y en **Buscar en internet (Admin)**, y elegí la credencial de Groq
+en los dos nodos **Groq Chat Model**.
 
 El nivel de acceso no lo decide el modelo: el bridge marca `isAdmin` según
 `ADMIN_JIDS`, y el prompt del **AI Agent** solo lee ese dato. Así nadie
@@ -108,6 +119,7 @@ del remitente; dentro de grupos puede llegar como `...@lid` en vez de
   "text": "Hola CaDI",
   "addressedToBot": true,
   "isAdmin": false,
+  "mentionedJids": ["123456789012345@lid"],
   "messageId": "...",
   "timestamp": 1234567890,
   "pushName": "Matías"
@@ -119,18 +131,29 @@ del remitente; dentro de grupos puede llegar como `...@lid` en vez de
 | Endpoint | Body | Qué hace |
 |---|---|---|
 | `POST /send` | `{ to, text }` | Manda un mensaje (a un grupo o a un individuo) |
-| `POST /group/remove-participant` | `{ groupId, participant }` | Saca a alguien del grupo (CaDI debe ser admin) |
+| `POST /group/remove-participant` | `{ groupId, participants, motivo? }` | Saca gente del grupo (CaDI debe ser admin). `participants`: array o string separado por comas. Nunca saca a alguien de `ADMIN_JIDS` ni a CaDI, y devuelve error si WhatsApp rechaza la acción |
 | `POST /group/set-mode` | `{ groupId, mode }` | `mode: "announcement"` (solo admins escriben) o `"not_announcement"` |
-| `POST /group/poll` | `{ groupId, question, options, selectableCount }` | Manda una encuesta |
+| `POST /group/poll` | `{ groupId, question, options, selectableCount }` | Manda una encuesta. `options`: array o string separado por `\|`, entre 2 y 12 |
 | `GET /health` | — | Chequeo de que el bridge está vivo |
+
+El bridge escucha solo en tu compu (`127.0.0.1` y `::1`): los endpoints no
+quedan expuestos a otras máquinas de tu red.
+
+Los endpoints de grupo siempre responden HTTP 200 con `success` (true/false)
+y un `resultado` en texto (`HECHO: ...` o `NO SE REALIZÓ. Motivo: ...`). Es a
+propósito: si respondieran con un error HTTP, n8n lo trataría como una falla
+del nodo y el agente podría no enterarse del motivo, y terminar diciendo que
+la acción salió bien.
+
+En `/send`, cada `@número` del texto se manda como etiqueta real, así
+WhatsApp muestra el nombre de la persona en lugar del número.
 
 ## Recordatorios importantes
 
 - **CaDI tiene que ser admin del grupo** para que `remove-participant` y
   `set-mode` funcionen — lo promovés vos manualmente desde la app, una vez
   que el número ya esté agregado como miembro normal.
-- No respondas a cada mensaje del grupo automáticamente (mejor solo a
-  menciones o comandos) — reduce el patrón de comportamiento "robótico" que
-  más dispara detección de baneo.
+- Para sacar a alguien, el admin tiene que **etiquetarlo con @** en el mismo
+  mensaje (por ejemplo: `@CaDI sacá a @Juan`).
 - Si te desloguean (`connection: close` con `loggedOut`), hay que borrar
   `auth_info_baileys/` y volver a escanear el QR desde cero.

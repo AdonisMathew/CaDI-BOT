@@ -58,6 +58,19 @@ if (ADMIN_JIDS.length === 0) {
   console.warn('⚠️  ADMIN_JIDS está vacío en el .env: nadie va a ser reconocido como admin.');
 }
 
+// JIDs que vimos en mensajes entrantes (remitentes y etiquetados): "735900..." -> "735900...@lid".
+// Sirve para que, cuando CaDI escribe "@735900...", WhatsApp lo muestre como etiqueta real.
+const knownJids = new Map();
+const rememberJid = (jid) => { if (jid) knownJids.set(jidToNumber(jid), normalizeJid(jid)); };
+ADMIN_JIDS.forEach(rememberJid); // los admins se conocen desde el arranque
+
+// Respuesta para las herramientas de n8n. Siempre HTTP 200 con un campo "success" y un
+// "resultado" en texto claro: si respondemos 4xx, n8n trata el error como falla del nodo y
+// el agente puede no recibir el motivo (y terminar inventando que la acción salió bien).
+const hecho = (res, resultado, extra = {}) => res.json({ success: true, resultado: `HECHO: ${resultado}`, ...extra });
+const noHecho = (res, error, extra = {}) =>
+  res.json({ success: false, resultado: `NO SE REALIZÓ. Motivo: ${error}`, error, ...extra });
+
 // ---------- Arranque de la conexión con WhatsApp ----------
 
 async function startBridge() {
@@ -158,6 +171,15 @@ async function startBridge() {
 
       const isAdmin = ADMIN_JIDS.includes(normalizeJid(senderJid));
 
+      // Personas etiquetadas en el mensaje (sin contar a CaDI): son el objetivo
+      // de acciones como "sacá a @Juan"
+      const mentionedJids = (contextInfo.mentionedJid || [])
+        .filter((jid) => !isBot(jid))
+        .map(normalizeJid);
+
+      rememberJid(senderJid);
+      mentionedJids.forEach(rememberJid);
+
       console.log('addressedToBot:', addressedToBot, '| isAdmin:', isAdmin);
 
       const payload = {
@@ -168,6 +190,7 @@ async function startBridge() {
         text: cleanText,
         addressedToBot,
         isAdmin,
+        mentionedJids,
         messageId: msg.key.id,
         timestamp: msg.messageTimestamp,
         pushName: msg.pushName || null,
@@ -207,7 +230,16 @@ async function startBridge() {
     console.log('JID final:', jid);
     console.log('Intentando enviar...');
 
-    const result = await sock.sendMessage(jid, { text });
+    // Cada "@numero" del texto se manda como etiqueta real: WhatsApp muestra el nombre
+    // de la persona en vez del número. Si no conocemos su JID, asumimos número de teléfono.
+    const me = sock.authState.creds.me || {};
+    const botUsers = [me.id, me.lid].filter(Boolean).map(jidToNumber);
+    const mentions = [...new Set([...String(text).matchAll(/@(\d{6,})/g)].map((m) => m[1]))]
+      .filter((n) => !botUsers.includes(n))
+      .map((n) => knownJids.get(n) || `${n}@s.whatsapp.net`);
+    console.log('Etiquetas:', mentions);
+
+    const result = await sock.sendMessage(jid, mentions.length ? { text, mentions } : { text });
 
     console.log('✅ sendMessage terminó correctamente');
     console.log('Resultado:', result);
@@ -227,19 +259,50 @@ async function startBridge() {
   }
 });
 
-  // Sacar a alguien del grupo (CaDI tiene que ser admin del grupo para que esto funcione)
+  // Sacar gente del grupo (CaDI tiene que ser admin del grupo para que esto funcione).
+  // participants: array de JIDs o string separado por comas.
   app.post('/group/remove-participant', async (req, res) => {
     try {
-      const { groupId, participant } = req.body;
-      const result = await sock.groupParticipantsUpdate(
-        toGroupJid(groupId),
-        [toIndividualJid(participant)],
-        'remove'
-      );
-      res.json({ success: true, result });
+      const { groupId, motivo } = req.body;
+      if (!groupId) return noHecho(res, 'Esta acción solo funciona dentro de un grupo.');
+
+      let participants = req.body.participants ?? req.body.participant ?? [];
+      if (typeof participants === 'string') participants = participants.split(',');
+      participants = participants.map((p) => p.trim()).filter(Boolean).map((p) => normalizeJid(toIndividualJid(p)));
+
+      // Red de seguridad: nunca sacar a un admin de CaDI ni a CaDI misma,
+      // aunque el modelo se equivoque
+      const me = sock.authState.creds.me || {};
+      const botUsers = [me.id, me.lid].filter(Boolean).map(jidToNumber);
+      const protegidos = participants.filter((p) => ADMIN_JIDS.includes(p) || botUsers.includes(jidToNumber(p)));
+      participants = participants.filter((p) => !protegidos.includes(p));
+
+      if (participants.length === 0) {
+        return noHecho(
+          res,
+          protegidos.length
+            ? 'La persona es administradora del grupo (o es CaDI) y no se la puede sacar.'
+            : 'No hay a quién sacar: hay que etiquetar (@) a la persona en el mismo mensaje.'
+        );
+      }
+
+      console.log('🚪 Sacando del grupo:', participants, '| motivo:', motivo || '(sin motivo)');
+      const result = await sock.groupParticipantsUpdate(toGroupJid(groupId), participants, 'remove');
+      const fallidos = result.filter((r) => r.status !== '200');
+
+      if (fallidos.length) {
+        return noHecho(res, 'WhatsApp rechazó la acción (¿CaDI es admin del grupo?).', {
+          detalle: fallidos.map((f) => ({ jid: f.jid, status: f.status })),
+        });
+      }
+      const aviso = protegidos.length ? ` Se omitieron ${protegidos.length} administrador(es), que no se pueden sacar.` : '';
+      hecho(res, `se sacó del grupo a ${participants.length} persona(s).${aviso}`, {
+        removidos: participants.length,
+        protegidosOmitidos: protegidos.length,
+      });
     } catch (err) {
       logger.error({ err }, 'Error en /group/remove-participant');
-      res.status(500).json({ success: false, error: err.message });
+      noHecho(res, `error interno: ${err.message}`);
     }
   });
 
@@ -247,35 +310,52 @@ async function startBridge() {
   app.post('/group/set-mode', async (req, res) => {
     try {
       const { groupId, mode } = req.body;
+      if (!groupId) return noHecho(res, 'Esta acción solo funciona dentro de un grupo.');
       if (!['announcement', 'not_announcement'].includes(mode)) {
-        return res.status(400).json({ success: false, error: 'mode inválido' });
+        return noHecho(res, "modo inválido: tiene que ser 'announcement' o 'not_announcement'.");
       }
       await sock.groupSettingUpdate(toGroupJid(groupId), mode);
-      res.json({ success: true });
+      hecho(res, mode === 'announcement' ? 'ahora solo los admins pueden escribir.' : 'ahora todos pueden escribir.');
     } catch (err) {
       logger.error({ err }, 'Error en /group/set-mode');
-      res.status(500).json({ success: false, error: err.message });
+      noHecho(res, `error interno (¿CaDI es admin del grupo?): ${err.message}`);
     }
   });
 
   // Encuesta
   app.post('/group/poll', async (req, res) => {
     try {
-      const { groupId, question, options, selectableCount = 1 } = req.body;
+      const { groupId, question, selectableCount = 1 } = req.body;
+      if (!groupId) return noHecho(res, 'Esta acción solo funciona dentro de un grupo.');
+      // options: array o string separado por "|" (más fácil de armar desde n8n)
+      let options = req.body.options ?? [];
+      if (typeof options === 'string') options = options.split('|');
+      options = options.map((o) => String(o).trim()).filter(Boolean);
+      if (!question || options.length < 2 || options.length > 12) {
+        return noHecho(res, 'La encuesta necesita una pregunta y entre 2 y 12 opciones.');
+      }
       await sock.sendMessage(toGroupJid(groupId), {
-        poll: { name: question, values: options, selectableCount },
+        poll: { name: question, values: options, selectableCount: Number(selectableCount) || 1 },
       });
-      res.json({ success: true });
+      hecho(res, `se envió la encuesta con ${options.length} opciones.`);
     } catch (err) {
       logger.error({ err }, 'Error en /group/poll');
-      res.status(500).json({ success: false, error: err.message });
+      noHecho(res, `error interno: ${err.message}`);
     }
   });
 
   app.get('/health', (req, res) => res.json({ status: 'ok' }));
 
-  app.listen(BRIDGE_PORT, () => {
+  // Solo localhost: los endpoints de admin no quedan expuestos a la red.
+  // Escuchamos en las dos direcciones locales porque, en Windows, "localhost"
+  // suele resolverse a IPv6 (::1) y no a IPv4 (127.0.0.1).
+  app.listen(BRIDGE_PORT, '127.0.0.1', () => {
     logger.info(`Bridge escuchando en http://localhost:${BRIDGE_PORT}`);
+  });
+  const ipv6 = app.listen(BRIDGE_PORT, '::1');
+  ipv6.on('error', (err) => {
+    // Si la compu no tiene IPv6, alcanza con 127.0.0.1
+    logger.warn({ code: err.code }, 'No se pudo escuchar en ::1 (IPv6); se sigue solo con 127.0.0.1');
   });
 }
 
