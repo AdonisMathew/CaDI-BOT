@@ -325,9 +325,16 @@ async function startBridge() {
 
   app.get('/health', (req, res) => res.json({ status: 'ok' }));
 
-  // Solo localhost: los endpoints de admin no quedan expuestos a la red
+  // Solo localhost: los endpoints de admin no quedan expuestos a la red.
+  // Escuchamos en las dos direcciones locales porque, en Windows, "localhost"
+  // suele resolverse a IPv6 (::1) y no a IPv4 (127.0.0.1).
   app.listen(BRIDGE_PORT, '127.0.0.1', () => {
     logger.info(`Bridge escuchando en http://localhost:${BRIDGE_PORT}`);
+  });
+  const ipv6 = app.listen(BRIDGE_PORT, '::1');
+  ipv6.on('error', (err) => {
+    // Si la compu no tiene IPv6, alcanza con 127.0.0.1
+    logger.warn({ code: err.code }, 'No se pudo escuchar en ::1 (IPv6); se sigue solo con 127.0.0.1');
   });
 }
 
