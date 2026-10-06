@@ -79,6 +79,9 @@ AI Agent:       Groq Chat Model + Buscar en internet
 - **Webhook1** recibe el POST que hace este bridge en `/webhook/cadi-grupo`
   (o el path que hayas puesto en `N8N_WEBHOOK_URL` del `.env`). n8n envuelve
   el JSON bajo `body`, así que los campos se leen como `$json.body.text`.
+- El bridge ya filtra: solo manda a n8n los mensajes dirigidos a CaDI
+  (salvo que pongas `REENVIAR_TODO=true` en el `.env`). Así un grupo
+  activo no genera una ejecución de n8n por cada mensaje.
 - **If** deja pasar solo los mensajes con texto que son para CaDI
   (`addressedToBot`). En grupos, eso es cuando la etiquetan con @, cuando
   responden a un mensaje suyo o cuando la nombran (`BOT_NAME`). En privado,
@@ -134,7 +137,7 @@ del remitente; dentro de grupos puede llegar como `...@lid` en vez de
 | `POST /group/remove-participant` | `{ groupId, participants, motivo? }` | Saca gente del grupo (CaDI debe ser admin). `participants`: array o string separado por comas. Nunca saca a alguien de `ADMIN_JIDS` ni a CaDI, y devuelve error si WhatsApp rechaza la acción |
 | `POST /group/set-mode` | `{ groupId, mode }` | `mode: "announcement"` (solo admins escriben) o `"not_announcement"` |
 | `POST /group/poll` | `{ groupId, question, options, selectableCount }` | Manda una encuesta. `options`: array o string separado por `\|`, entre 2 y 12 |
-| `GET /health` | — | Chequeo de que el bridge está vivo |
+| `GET /health` | — | Estado real: `200` con `status: "ok"` si WhatsApp está conectado; `503` con `"reconectando"` o `"detenido"` (y el motivo) si no |
 
 El bridge escucha solo en tu compu (`127.0.0.1` y `::1`): los endpoints no
 quedan expuestos a otras máquinas de tu red.
@@ -147,6 +150,54 @@ la acción salió bien.
 
 En `/send`, cada `@número` del texto se manda como etiqueta real, así
 WhatsApp muestra el nombre de la persona en lugar del número.
+
+## 6. Dejarlo corriendo sin interrupciones (PM2)
+
+[PM2](https://pm2.keymetrics.io/) mantiene al bridge **y** a n8n corriendo en
+segundo plano, sin ventanas de PowerShell abiertas, y los vuelve a levantar
+solos si se caen. La configuración está en
+[`ecosystem.config.cjs`](./ecosystem.config.cjs).
+
+Una sola vez:
+
+```bash
+npm install -g pm2
+npm install -g n8n        # si hoy arrancás n8n con "npx n8n", esto lo reemplaza
+```
+
+Cada vez que quieras arrancar todo (desde esta carpeta):
+
+```bash
+pm2 start ecosystem.config.cjs
+```
+
+Comandos útiles:
+
+| Comando | Qué hace |
+|---|---|
+| `pm2 status` | Muestra si `cadi-bridge` y `n8n` están `online`, cuánta RAM usan y cuántas veces se reiniciaron |
+| `pm2 logs cadi-bridge` | Ver los logs del bridge en vivo (Ctrl+C para salir; el bridge sigue corriendo) |
+| `pm2 restart cadi-bridge` | Reiniciar el bridge (por ejemplo, después de cambiar el `.env`) |
+| `pm2 stop all` | Apagar todo |
+
+> Si es la primera vez y hay que escanear el QR, hacelo con `npm start`
+> (en la terminal se ve mejor), cortá con Ctrl+C y recién ahí usá PM2.
+> Nunca dejes `npm start` abierto **y** PM2 a la vez: serían dos bridges con
+> la misma sesión y WhatsApp los echa a los dos (el bridge lo detecta y frena).
+
+### Qué hace el bridge cuando algo falla
+
+- **Se corta WhatsApp:** reconecta solo, esperando 2s, 4s, 8s... hasta 60s
+  entre intentos. Si queda trabado "conectando" más de 2 minutos, un
+  vigilante (watchdog) fuerza un intento nuevo.
+- **n8n pide responder mientras WhatsApp reconecta:** `/send` espera hasta
+  20s a que vuelva la conexión antes de dar error.
+- **n8n está caído o arrancando:** el mensaje se reintenta durante ~1 minuto
+  (a los 3s, 10s, 20s y 30s) antes de descartarlo.
+- **Mensajes viejos tras un corte:** se ignoran los de más de 5 minutos
+  (`MAX_ANTIGUEDAD_SEG`), para que CaDI no conteste de golpe todo lo atrasado.
+- **Logout o sesión abierta en otro lado:** no reintenta (no tiene sentido);
+  `/health` responde `"detenido"` con el motivo.
 
 ## Recordatorios importantes
 
