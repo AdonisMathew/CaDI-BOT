@@ -70,3 +70,22 @@ teléfono que ya tiene WhatsApp personal (números distintos, apps
 distintas, sin conflicto). Permite usar el propio celular para el
 registro inicial del número nuevo, insertando la SIM solo durante esos
 minutos.
+
+**El bridge "se trababa" después de cualquier microcorte**
+Síntoma: CaDI dejaba de contestar de golpe y había que reiniciar el bridge
+a mano. Causa: al reconectar, la función de arranque creaba un socket de
+WhatsApp nuevo *y* intentaba levantar otro servidor Express en el mismo
+puerto. Ese segundo servidor fallaba en silencio (`EADDRINUSE`, que Express
+5 le pasa al callback de `listen` en lugar de lanzarlo), así que seguía
+atendiendo el primero, cuyas rutas apuntaban al socket **viejo, ya cerrado**.
+Resultado: después de la primera reconexión, `/send` intentaba mandar por una
+conexión muerta. Se resolvió creando el servidor HTTP una sola vez y haciendo
+que siempre use el socket actual, más reconexión con espera creciente,
+watchdog y reintentos hacia n8n.
+
+**Ventanas de consola en Windows que congelan procesos**
+Si hacés clic dentro de una ventana de PowerShell/CMD con "Edición rápida"
+activada, la consola entra en modo selección y **pausa** al proceso que
+escribe en ella hasta que apretás Enter o Esc. Con n8n o el bridge corriendo
+en esa ventana, parece que "se perdió la conexión". Correr ambos con PM2
+(sin ventana) elimina el problema.

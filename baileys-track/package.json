@@ -13,7 +13,7 @@
   "type": "module",
   "dependencies": {
     "@hapi/boom": "^10.0.1",
-    "baileys": "^6.7.23",
+    "baileys": "6.7.23",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "pino": "^10.3.1",
