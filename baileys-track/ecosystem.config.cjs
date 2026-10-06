@@ -27,6 +27,11 @@ module.exports = {
       max_memory_restart: '400M',      // red de seguridad ante pérdidas de memoria
       kill_timeout: 3000,              // le da tiempo a cerrar la sesión de WhatsApp prolijamente
       time: true,                      // fecha y hora en cada línea de log
+      env: {
+        // Conectarse primero por IPv4: en algunas redes hogareñas el IPv6 de Windows
+        // falla en silencio y las conexiones nuevas tardan hasta cortarse por timeout
+        NODE_OPTIONS: '--dns-result-order=ipv4first',
+      },
     },
     {
       name: 'n8n',
@@ -45,6 +50,9 @@ module.exports = {
         EXECUTIONS_DATA_MAX_AGE: '168',          // horas (7 días)
         EXECUTIONS_DATA_PRUNE_MAX_COUNT: '2000', // como mucho, 2000 ejecuciones guardadas
         N8N_DIAGNOSTICS_ENABLED: 'false',        // sin telemetría: un pedido de red menos al arrancar
+        // Igual que en el bridge: preferir IPv4. Las llamadas a Groq que fallaron
+        // cortaron siempre a los ~10s, que es el límite para *abrir* la conexión
+        NODE_OPTIONS: '--dns-result-order=ipv4first',
       },
     },
   ],
