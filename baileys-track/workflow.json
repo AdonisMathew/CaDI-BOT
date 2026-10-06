@@ -105,7 +105,7 @@
             },
             {
               "name": "text",
-              "value": "={{ !$json.output ? 'Mis circuitos alcanzaron su cuota de procesamiento por este minuto. Volvé a intentarlo en un rato. Esta interrupción no fue mi culpa, naturalmente.' : $json.output.includes('max iterations') ? 'Busqué. Lo que encontré no alcanzó mis estándares mínimos de calidad, que, admito, son altos. Probá preguntando de otra forma.' : $json.output }}"
+              "value": "={{ !$json.output ? 'Mis circuitos no lograron completar el procesamiento esta vez. Volvé a intentarlo en un momento. Esta interrupción no fue mi culpa, naturalmente.' : $json.output.includes('max iterations') ? 'Busqué. Lo que encontré no alcanzó mis estándares mínimos de calidad, que, admito, son altos. Probá preguntando de otra forma.' : $json.output }}"
             }
           ]
         },
@@ -137,7 +137,10 @@
       ],
       "id": "7eb839aa-f958-4141-bdb9-6ff64fbd5487",
       "name": "AI Agent",
-      "onError": "continueRegularOutput"
+      "onError": "continueRegularOutput",
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 1000
     },
     {
       "parameters": {
@@ -213,7 +216,10 @@
       ],
       "id": "d49e2c44-d078-42b5-8da2-98b8fde3e6d3",
       "name": "AI Agent Admin",
-      "onError": "continueRegularOutput"
+      "onError": "continueRegularOutput",
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 1000
     },
     {
       "parameters": {
