@@ -318,7 +318,14 @@ Cada vez que quieras arrancar todo (desde esta carpeta):
 
 ```bash
 pm2 start ecosystem.config.cjs
+pm2 save
 ```
+
+`pm2 save` guarda la lista de procesos **con su configuración**. `pm2 resurrect`
+(o el arranque automático de PM2) levanta lo último que guardaste, así que
+cada vez que cambies `ecosystem.config.cjs` hacé `pm2 delete all`,
+`pm2 start ecosystem.config.cjs` y `pm2 save`; si no, `resurrect` vuelve a la
+configuración vieja.
 
 Comandos útiles:
 
@@ -346,7 +353,9 @@ Comandos útiles:
 - **Mensajes viejos tras un corte:** no se contestan los de más de 5 minutos
   (`MAX_ANTIGUEDAD_SEG`), pero sí se guardan en la memoria.
 - **Logout o sesión abierta en otro lado:** no reintenta (no tiene sentido);
-  `/health` responde `"detenido"` con el motivo.
+  `/health` responde `"detenido"` con el motivo. PM2 lo sigue mostrando
+  `online` (el proceso está vivo), pero CaDI no recibe nada: si no contesta,
+  mirá `pm2 logs cadi-bridge` antes que nada.
 
 ## Recordatorios importantes
 
@@ -357,6 +366,11 @@ Comandos útiles:
   mensaje (por ejemplo: `@CaDI sacá a @Juan`).
 - Los **eventos** se arman a mano (Baileys 6.7.23 no los trae), copiando el
   formato de Baileys 7. Probalo primero en el grupo de prueba.
-- Si te desloguean (`connection: close` con `loggedOut`), hay que borrar
-  `auth_info_baileys/` y volver a escanear el QR desde cero. La memoria
+- Si te desloguean (en el log: `statusCode: 401` y "Sesión desvinculada"),
+  hay que borrar `auth_info_baileys/` y volver a escanear el QR desde cero:
+  `pm2 delete all`, borrar la carpeta (`rm -rf auth_info_baileys` en Git Bash,
+  `Remove-Item -Recurse -Force auth_info_baileys` en PowerShell), `npm start`,
+  escanear, Ctrl+C, `pm2 start ecosystem.config.cjs` y `pm2 save`. La memoria
   (`data/`) no se toca.
+- WhatsApp desvincula los dispositivos si el teléfono principal de CaDI pasa
+  mucho tiempo sin conectarse: abrí WhatsApp Business de CaDI cada tanto.

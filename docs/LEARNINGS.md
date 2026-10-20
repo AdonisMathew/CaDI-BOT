@@ -145,3 +145,27 @@ Para validar el workflow se levantó un n8n 2.43 local con un "Groq" simulado
 y el bridge real con un WhatsApp simulado que usa las funciones de Baileys para
 armar los mensajes. Así se probó la cadena completa — mensaje, contexto,
 agente, herramienta, respuesta — incluido el modelo de respaldo ante un 429.
+
+**"Online" en PM2 no quiere decir conectado a WhatsApp**
+Después de 13 días sin correr el bridge, la sesión de CaDI apareció
+desvinculada: cada arranque terminaba con `statusCode: 401` ("Sesión
+desvinculada") y el bridge dejaba de reintentar, a propósito. PM2 lo seguía
+mostrando `online` porque el proceso estaba vivo, pero no entraba ningún
+mensaje. Se resolvió borrando `auth_info_baileys/` y volviendo a escanear el QR.
+El síntoma que lo delató sin abrir los logs: la memoria (`data/cadi.db`) no
+había guardado ni un mensaje.
+
+**`pm2 resurrect` levanta lo último guardado con `pm2 save`**
+Después de cambiar `ecosystem.config.cjs`, n8n volvió a arrancar con la
+configuración vieja porque `resurrect` restaura la lista de procesos (con sus
+variables de entorno) tal como estaba en el último `pm2 save`. Cada cambio de
+configuración: `pm2 delete all`, `pm2 start ecosystem.config.cjs`, `pm2 save`.
+
+**Importar el historial: dos años en un minuto**
+El chat exportado del grupo (129.417 mensajes, desde junio de 2024) se importó
+de una vez con `importar-chat.js`: 125.342 guardados. Los salteados son los
+que el bridge ya había visto en vivo y los mensajes idénticos de la misma
+persona en el mismo minuto (por ejemplo, varias fotos seguidas), porque el
+export de Android no trae segundos. La búsqueda sigue siendo instantánea
+gracias al índice FTS5.
+
