@@ -1,0 +1,287 @@
+{
+  "name": "CaDI - Resumen diario",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 4 * * *"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        300
+      ],
+      "id": "eb2a7d22-2fc2-522b-975f-f3f54524760f",
+      "name": "Todos los días a las 4"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        500
+      ],
+      "id": "781cc7a6-8374-55fa-9361-5da8c0d743b5",
+      "name": "Probar ahora"
+    },
+    {
+      "parameters": {
+        "url": "http://localhost:3001/memoria/pendientes",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        220,
+        300
+      ],
+      "id": "335f7507-b51e-5ed9-87ce-9b621bb9561c",
+      "name": "Pedir días sin resumir"
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "pendientes",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        440,
+        300
+      ],
+      "id": "6249ce3a-b30e-5e78-9376-689977a8f0e1",
+      "name": "Separar"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        660,
+        300
+      ],
+      "id": "ff490597-680d-53f1-8be1-7833e8514520",
+      "name": "De a uno"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Resumí esta conversación de un grupo de WhatsApp de amigos{{ $json.nombreChat ? ' (' + $json.nombreChat + ')' : '' }} del día {{ $json.fecha }}{{ $json.partes > 1 ? ', parte ' + $json.parte + ' de ' + $json.partes : '' }}.\nEscribí en español rioplatense, en 2 a 5 frases cortas (máximo 80 palabras), sin opinar ni hacer chistes:\n- temas principales y qué se decidió\n- planes con fecha, hora o lugar\n- datos que conviene recordar (cumpleaños, deudas, acuerdos, noticias de alguien)\nNombrá a las personas cuando importe quién dijo qué. Si no pasó nada relevante, escribí solo: Charla sin datos relevantes.\n\nConversación:\n{{ $json.texto }}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.7,
+      "position": [
+        900,
+        380
+      ],
+      "id": "3f17cd79-4a2f-58bf-964b-092f1ad1b903",
+      "name": "Resumir",
+      "onError": "continueRegularOutput",
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "openai/gpt-oss-20b",
+          "mode": "id"
+        },
+        "options": {
+          "extraBody": "{ \"reasoning_effort\": \"low\" }",
+          "maxTokens": 1200
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        900,
+        600
+      ],
+      "id": "45db4206-115a-5b37-8ce5-f2b7a8ff9fb3",
+      "name": "Groq (resúmenes)",
+      "credentials": {
+        "openAiApi": {
+          "id": "wtOczgtPAixNVQqQ",
+          "name": "OpenAI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:3001/memoria/resumen",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "chat",
+              "value": "={{ $('De a uno').item.json.chat }}"
+            },
+            {
+              "name": "fecha",
+              "value": "={{ $('De a uno').item.json.fecha }}"
+            },
+            {
+              "name": "parte",
+              "value": "={{ $('De a uno').item.json.parte }}"
+            },
+            {
+              "name": "texto",
+              "value": "={{ $json.text || '' }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1180,
+        380
+      ],
+      "id": "1941f9af-9bb0-58da-9d3c-504fb68eb05e",
+      "name": "Guardar resumen",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "amount": 65,
+        "unit": "seconds"
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        1400,
+        380
+      ],
+      "id": "131b0ffd-7958-5f82-8757-b12d4b13eb92",
+      "name": "Esperar 1 minuto",
+      "webhookId": "d88e1f64-26f9-544a-af7e-3ec3d0fa15f6"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Todos los días a las 4": {
+      "main": [
+        [
+          {
+            "node": "Pedir días sin resumir",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Probar ahora": {
+      "main": [
+        [
+          {
+            "node": "Pedir días sin resumir",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pedir días sin resumir": {
+      "main": [
+        [
+          {
+            "node": "Separar",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Separar": {
+      "main": [
+        [
+          {
+            "node": "De a uno",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "De a uno": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Resumir",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resumir": {
+      "main": [
+        [
+          {
+            "node": "Guardar resumen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Guardar resumen": {
+      "main": [
+        [
+          {
+            "node": "Esperar 1 minuto",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Esperar 1 minuto": {
+      "main": [
+        [
+          {
+            "node": "De a uno",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Groq (resúmenes)": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Resumir",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/Argentina/Tucuman"
+  },
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "7805c4137a3258d4fdc56282923bbf420d047c23c4ad91e48ffcdcff317e7fc2"
+  },
+  "tags": []
+}

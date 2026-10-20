@@ -1,22 +1,26 @@
 {
   "name": "cadi-baileys-bridge",
-  "version": "1.0.0",
-  "description": "Puente entre WhatsApp (Baileys) y n8n para CaDI",
+  "version": "1.1.0",
+  "description": "Puente entre WhatsApp (Baileys) y n8n para CaDI, con memoria y herramientas de grupo",
   "main": "index.js",
+  "type": "module",
+  "engines": {
+    "node": ">=22.13"
+  },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node index.js"
+    "start": "node index.js",
+    "importar": "node importar-chat.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "type": "module",
   "dependencies": {
     "@hapi/boom": "^10.0.1",
     "baileys": "6.7.23",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "pino": "^10.3.1",
-    "qrcode-terminal": "^0.12.0"
+    "qrcode-terminal": "^0.12.0",
+    "sharp": "^0.35.3"
   }
 }
