@@ -1,9 +1,11 @@
 # CaDI 🤖
 
-Un bot/asistente de WhatsApp con personalidad inspirada en **GLaDOS** (Portal),
-pensado para vivir dentro de un grupo de amigos: sarcasmo elegante, formalidad
-excesiva, estadísticas absurdas inventadas, amenazas cómicas falsas — con
-información útil real de fondo (búsqueda web en tiempo real).
+Un bot/asistente de WhatsApp pensado para vivir dentro de un grupo de amigos:
+una IA fría y exquisitamente educada (inspirada en un principio en **GLaDOS**,
+de Portal) que se cree a cargo del "Proyecto CaDI" — sarcasmo elegante, humor
+negro, formalidad excesiva, estadísticas absurdas inventadas, amenazas cómicas
+falsas — con información útil real de fondo: búsqueda web, memoria del grupo,
+encuestas, eventos, ubicaciones e imágenes.
 
 Proyecto personal/académico de [Matías Amarilla](https://github.com/AdonisMathew),
 estudiante de la Tecnicatura Universitaria en Programación (UTN FRT, Tucumán,
@@ -37,7 +39,7 @@ en [`baileys-track/README.md`](./baileys-track/README.md)).
 ```
 CaDI/
 ├── cloud-api-track/     → Versión 1: WhatsApp Business Cloud API + n8n (operativa, 1 a 1)
-├── baileys-track/       → Versión 2: Baileys + n8n (operativa 1 a 1, en camino al grupo)
+├── baileys-track/       → Versión 2: Baileys + n8n (operativa, dentro del grupo)
 └── docs/
     └── LEARNINGS.md      → Problemas encontrados y cómo se resolvieron, de ambos tracks
 ```
@@ -50,14 +52,15 @@ CaDI/
   - Track 2 (Baileys): `openai/gpt-oss-120b`
 - **Búsqueda web en tiempo real**: Tavily API
 - **Track 1**: WhatsApp Business Cloud API (Meta) + ngrok
-- **Track 2**: [Baileys](https://baileys.wiki/) + Express
+- **Track 2**: [Baileys](https://baileys.wiki/) + Express, con memoria en SQLite (`node:sqlite`),
+  imágenes con Cloudflare Workers AI (FLUX.1 schnell) y mapas de OpenStreetMap (Nominatim)
 
 ## Estado actual
 
 | Track | Estado |
 |---|---|
 | Cloud API | ✅ Operativo — responde 1 a 1, distingue admin/no-admin, con búsqueda web |
-| Baileys | ✅ Operativo — número dedicado vinculado, responde 1 a 1 con búsqueda web; falta probarlo dentro del grupo |
+| Baileys | ✅ Operativo — número dedicado vinculado, en pruebas dentro del grupo real, con memoria y herramientas de WhatsApp |
 
 ### Funcionalidades
 
@@ -70,11 +73,13 @@ CaDI/
 - Webhook verificado y activo con Meta Cloud API
 - Filtro de permisos por número (admin vs. usuario regular)
 - En grupos, CaDI responde solo cuando la etiquetan, la nombran o le responden un mensaje (track Baileys)
-- Acciones de administrador sobre el grupo, solo para admins: sacar participantes, cambiar quién escribe, encuestas (track Baileys)
+- Acciones de administrador sobre el grupo, solo para admins: sacar participantes, cambiar quién escribe, borrar notas (track Baileys)
+- Memoria del grupo: conversación reciente, resúmenes diarios, notas y búsqueda en el historial; importación del chat exportado (track Baileys)
+- Herramientas para cualquier integrante: encuestas, eventos de WhatsApp, ubicaciones, imágenes con IA y @todos (track Baileys)
+- Sabe que está en Tucumán: fecha y hora local, búsquedas y lugares con prioridad en Tucumán (track Baileys)
 
 **Pendientes**
 - Intervenciones autónomas de CaDI sin ser mencionada (Schedule Trigger)
-- Integración en un grupo real de WhatsApp (en desarrollo — track Baileys)
 
 ## Nota honesta sobre el track de Baileys
 
