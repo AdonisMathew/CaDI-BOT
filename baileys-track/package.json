@@ -9,7 +9,8 @@
   },
   "scripts": {
     "start": "node index.js",
-    "importar": "node importar-chat.js"
+    "importar": "node importar-chat.js",
+    "test": "node --test"
   },
   "keywords": [],
   "author": "",

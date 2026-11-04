@@ -13,7 +13,8 @@
 //   6. Servidor HTTP: lo que n8n llama para actuar (se crea UNA sola vez)
 //   7. Vigilancia y arranque
 //
-// Módulos aparte: memoria.js (base SQLite) y servicios.js (imágenes y mapas).
+// Módulos aparte: memoria.js (base SQLite), servicios.js (imágenes y mapas) y
+// privado.js (quién puede hablarle por privado y las dos caras, número y LID, de cada persona).
 
 import 'dotenv/config';
 import { randomBytes } from 'node:crypto';
@@ -39,6 +40,13 @@ import {
   recortar,
 } from './memoria.js';
 import { buscarLugar, generarImagen, imagenesNoConfiguradas } from './servicios.js';
+import {
+  FRASES_PRIVADO,
+  crearFiltroPrivado,
+  crearIdentidades,
+  listaDeJids,
+  textoAvisoPrivado,
+} from './privado.js';
 
 // =====================================================================
 // 1. Config y helpers
@@ -96,6 +104,13 @@ const PALABRAS_TODOS = (process.env.PALABRAS_TODOS || '@todos,@all,@everyone,@to
   .filter(Boolean);
 const TODOS_ESPERA_MIN = num(process.env.TODOS_ESPERA_MIN, 10); // entre convocatorias (los admins no esperan)
 
+// --- Privado (ver privado.js) ---
+// Por defecto, por privado solo le pueden hablar los admins y PRIVADO_PERMITIDOS.
+const PRIVADO_SOLO_ADMINS = process.env.PRIVADO_SOLO_ADMINS !== 'false';
+const PRIVADO_PERMITIDOS = listaDeJids(process.env.PRIVADO_PERMITIDOS);
+const PRIVADO_NEGATIVA = process.env.PRIVADO_NEGATIVA !== 'false'; // false = no contestarle nada
+const PRIVADO_AVISO_HORAS = num(process.env.PRIVADO_AVISO_HORAS, 12); // entre avisos por la misma persona
+
 // --- Imágenes ---
 const IMAGEN_MAX_DIA = num(process.env.IMAGEN_MAX_DIA, 25); // por chat y por día (0 = sin tope)
 const IMAGEN_ESPERA_SEG = num(process.env.IMAGEN_ESPERA_SEG, 60); // por persona (los admins no esperan)
@@ -149,23 +164,34 @@ function normalizeJid(jid) {
   return `${user.split(':')[0]}@${server}`;
 }
 
-// Lista de admins de CaDI, desde el .env (nunca en el código ni en GitHub)
-const ADMIN_JIDS = (process.env.ADMIN_JIDS || '')
-  .split(',')
-  .map((j) => normalizeJid(j.trim()))
-  .filter(Boolean);
+// Lista de admins de CaDI, desde el .env (nunca en el código ni en GitHub).
+// Sirve tanto el número (549...@s.whatsapp.net, o el número solo) como el LID (...@lid):
+// el bridge aprende qué LID corresponde a qué número (ver privado.js).
+const ADMIN_JIDS = listaDeJids(process.env.ADMIN_JIDS);
 
 if (ADMIN_JIDS.length === 0) {
   console.warn('⚠️  ADMIN_JIDS está vacío en el .env: nadie va a ser reconocido como admin.');
 }
 
+// A quién le avisa CaDI cuando alguien sin permiso le escribe por privado
+// (vacío = al primer JID de ADMIN_JIDS)
+const AVISOS_JID = listaDeJids(process.env.AVISOS_JID)[0] || ADMIN_JIDS[0] || '';
+
+if (PRIVADO_SOLO_ADMINS && ADMIN_JIDS.length + PRIVADO_PERMITIDOS.length === 0) {
+  console.warn('⚠️  PRIVADO_SOLO_ADMINS está activo y no hay admins: CaDI no le va a contestar a nadie por privado.');
+}
+
 // Personas que pidieron que CaDI no guarde sus mensajes (JIDs separados por coma)
-const MEMORIA_EXCLUIR = new Set(
-  (process.env.MEMORIA_EXCLUIR || '')
-    .split(',')
-    .map((j) => normalizeJid(j.trim()))
-    .filter(Boolean)
-);
+const MEMORIA_EXCLUIR = new Set(listaDeJids(process.env.MEMORIA_EXCLUIR));
+
+// Las dos caras (número y LID) de cada persona, y quién puede hablarle por privado
+const identidades = crearIdentidades();
+const esJidDeAdmin = (jid) => identidades.expandir(jid).some((id) => ADMIN_JIDS.includes(id));
+const filtroPrivado = crearFiltroPrivado({
+  activo: PRIVADO_SOLO_ADMINS,
+  autorizados: [...ADMIN_JIDS, ...PRIVADO_PERMITIDOS],
+  horasEntreAvisos: PRIVADO_AVISO_HORAS,
+});
 
 // JIDs vistos (remitentes, etiquetados e integrantes de grupos): "123456..." -> "123456...@lid".
 // Sirve para que, cuando CaDI escribe "@123456...", WhatsApp lo muestre como etiqueta real.
@@ -206,13 +232,33 @@ function grupoEnCache(jid) {
   return c && c.hasta > Date.now() ? c.meta : undefined;
 }
 
+// Guarda la info de un grupo y aprende, de paso, qué LID corresponde a qué número
+function guardarGrupo(meta) {
+  cacheGrupos.set(meta.id, { meta, hasta: Date.now() + GRUPO_TTL_MS });
+  for (const p of meta.participants || []) {
+    rememberJid(p.id);
+    identidades.recordarPar(p.jid, p.lid);
+  }
+  return meta;
+}
+
 async function obtenerGrupo(jid) {
   const enCache = grupoEnCache(jid);
   if (enCache) return enCache;
   const meta = await conTimeout(sock.groupMetadata(jid), 15000, 'groupMetadata');
-  cacheGrupos.set(jid, { meta, hasta: Date.now() + GRUPO_TTL_MS });
-  meta.participants.forEach((p) => rememberJid(p.id));
-  return meta;
+  return guardarGrupo({ ...meta, id: meta.id || jid });
+}
+
+// Al conectar, se carga la info de todos los grupos de CaDI. Así, aunque un admin escriba
+// por privado con su LID (sin número), el bridge ya sabe quién es.
+async function precargarGrupos() {
+  try {
+    const grupos = await conTimeout(sock.groupFetchAllParticipating(), 20000, 'groupFetchAllParticipating');
+    for (const meta of Object.values(grupos || {})) guardarGrupo(meta);
+    logger.info({ grupos: Object.keys(grupos || {}).length, paresLidNumero: identidades.pares }, '👥 Info de los grupos cargada');
+  } catch (err) {
+    logger.warn({ motivo: err.message }, 'No se pudo cargar la info de los grupos al conectar');
+  }
 }
 
 // =====================================================================
@@ -330,6 +376,7 @@ async function conectarWhatsApp() {
       intentosSeguidos = 0;
       cacheGrupos.clear(); // mientras estuvo desconectada pudo cambiar cualquier cosa
       logger.info('✅ Conectado a WhatsApp. CaDI está en línea.');
+      precargarGrupos();
       return;
     }
 
@@ -516,6 +563,50 @@ async function convocarATodos(msg, chat, isAdmin) {
   }
 }
 
+// ---------- Privado sin permiso ----------
+
+// Alguien que no es admin (ni está en PRIVADO_PERMITIDOS) le escribió a CaDI por privado.
+// La primera vez en PRIVADO_AVISO_HORAS: una negativa fija para esa persona y un aviso al
+// dueño (AVISOS_JID). Si sigue escribiendo, silencio: nada de spam para ninguno de los dos.
+async function atenderPrivadoSinPermiso(msg, ids, texto, ts) {
+  const chat = msg.key.remoteJid;
+  const { avisar, mensajes } = filtroPrivado.registrarIntento(ids);
+  logger.warn({ chat, identidades: ids, pushName: msg.pushName, mensajes, avisar }, '🔒 Privado de alguien sin permiso: no pasa a n8n');
+  if (!avisar || !(await esperarConexion())) return;
+
+  let negativaEnviada = false;
+  if (PRIVADO_NEGATIVA) {
+    const frase = elegir(FRASES_PRIVADO);
+    try {
+      const result = await conTimeout(sock.sendMessage(chat, { text: frase }), 30000, 'sendMessage (negativa por privado)');
+      recordarEnviado(result);
+      guardarDeCaDI(chat, result, frase);
+      negativaEnviada = true;
+    } catch (err) {
+      logger.warn({ motivo: err.message }, 'No se pudo mandar la negativa por privado');
+    }
+  }
+
+  // El aviso nunca va a la misma persona que escribió
+  if (!AVISOS_JID || identidades.expandir(AVISOS_JID).some((id) => ids.includes(id))) return;
+  const aviso = textoAvisoPrivado({
+    nombre: nombreVisible(chat, msg.pushName),
+    ids,
+    texto,
+    cuando: fechaHoraLarga(ts),
+    contestoNegativa: negativaEnviada,
+    horasEntreAvisos: PRIVADO_AVISO_HORAS,
+  });
+  try {
+    const result = await conTimeout(sock.sendMessage(AVISOS_JID, { text: aviso }), 30000, 'sendMessage (aviso de privado)');
+    recordarEnviado(result);
+    guardarDeCaDI(AVISOS_JID, result, aviso);
+    logger.info({ a: AVISOS_JID }, '🔔 Aviso enviado: alguien sin permiso escribió por privado');
+  } catch (err) {
+    logger.warn({ motivo: err.message }, 'No se pudo mandar el aviso de privado');
+  }
+}
+
 // ---------- Contexto para el modelo ----------
 
 // "@123456..." -> "@Juan" en la conversación reciente (más legible y gasta menos tokens)
@@ -587,6 +678,8 @@ function procesarEntrante(msg, type) {
   const isGroup = remoteJid.endsWith('@g.us');
   const senderJid = msg.key.fromMe ? botJid() : isGroup ? msg.key.participant : remoteJid;
   if (!senderJid) return;
+  // Todas las caras conocidas del remitente (número y LID): para admins, privado y exclusiones
+  const ids = msg.key.fromMe ? [] : identidades.de(msg.key, isGroup);
 
   // --- Ediciones y "eliminar para todos": se reflejan en la memoria ---
   const protocolo = contenido.protocolMessage;
@@ -611,7 +704,7 @@ function procesarEntrante(msg, type) {
   const ts = aNumero(msg.messageTimestamp) || ahoraSeg();
   try {
     if (!msg.key.fromMe) memoria.recordarNombre(normalizeJid(senderJid), msg.pushName);
-    if (!MEMORIA_EXCLUIR.has(normalizeJid(senderJid))) {
+    if (!ids.some((id) => MEMORIA_EXCLUIR.has(id))) {
       memoria.guardarMensaje({
         waId: msg.key.id,
         chat: remoteJid,
@@ -650,7 +743,7 @@ function procesarEntrante(msg, type) {
   // Sacamos el "@numero" de CaDI del texto, para que el modelo no lo lea
   const cleanText = users.reduce((t, u) => t.replaceAll(`@${u}`, ''), text).trim() || text;
 
-  const isAdmin = ADMIN_JIDS.includes(normalizeJid(senderJid));
+  const isAdmin = ids.some((id) => ADMIN_JIDS.includes(id));
   const pideTodos = isGroup && regexTodos.test(text);
 
   // Personas etiquetadas en el mensaje (sin contar a CaDI): son el objetivo
@@ -660,8 +753,17 @@ function procesarEntrante(msg, type) {
   rememberJid(senderJid);
   mentionedJids.forEach(rememberJid);
 
-  // Una sola línea por mensaje (senderJid sirve para cargar ADMIN_JIDS en el .env)
-  logger.info({ remoteJid, senderJid, pushName: msg.pushName, addressedToBot, isAdmin, pideTodos }, '📩 Mensaje entrante');
+  // Una sola línea por mensaje (identidades sirve para cargar ADMIN_JIDS y PRIVADO_PERMITIDOS en el .env)
+  logger.info(
+    { remoteJid, senderJid, identidades: ids, pushName: msg.pushName, addressedToBot, isAdmin, pideTodos },
+    '📩 Mensaje entrante'
+  );
+
+  // Privado de alguien sin permiso: no pasa a n8n (ni gasta Groq). Ver privado.js
+  if (!isGroup && !filtroPrivado.puedeHablar(ids)) {
+    atenderPrivadoSinPermiso(msg, ids, text, ts).catch((err) => logger.error({ err }, 'No se pudo atender un privado sin permiso'));
+    return;
+  }
 
   // "@todos" sin hablarle a CaDI: lo resuelve el bridge solo, sin n8n ni Groq
   if (pideTodos && !addressedToBot) {
@@ -864,7 +966,7 @@ app.post('/group/remove-participant', requiereWhatsApp, async (req, res) => {
     // Red de seguridad: nunca sacar a un admin de CaDI ni a CaDI misma,
     // aunque el modelo se equivoque
     const users = botUsers();
-    const protegidos = participants.filter((p) => ADMIN_JIDS.includes(p) || users.includes(jidToNumber(p)));
+    const protegidos = participants.filter((p) => esJidDeAdmin(p) || users.includes(jidToNumber(p)));
     participants = participants.filter((p) => !protegidos.includes(p));
 
     if (participants.length === 0) {
@@ -1243,6 +1345,8 @@ app.get('/health', (req, res) => {
     conectadoHaceSeg: seg(conectadoDesde),
     procesoActivoHaceSeg: seg(iniciadoEn),
     reconexiones: reconexionesTotales,
+    privado: PRIVADO_SOLO_ADMINS ? 'solo admins' : 'todos',
+    paresLidNumero: identidades.pares,
     memoria: estadoMemoria,
     imagenes: imagenesNoConfiguradas() || 'ok',
   });
