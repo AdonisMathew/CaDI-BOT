@@ -341,6 +341,32 @@ Comandos útiles:
 > Nunca dejes `npm start` abierto **y** PM2 a la vez: serían dos bridges con
 > la misma sesión y WhatsApp los echa a los dos (el bridge lo detecta y frena).
 
+### Aviso por mail si CaDI se cae (Healthchecks.io)
+
+PM2 levanta lo que se cae, pero no se entera si la compu se apaga, si se corta
+internet o si hay que volver a escanear el QR. Para eso, el bridge le avisa a
+[Healthchecks.io](https://healthchecks.io) (plan Hobbyist, gratis) cada 5
+minutos que WhatsApp y n8n andan. Si los avisos dejan de llegar, te llega un mail.
+
+1. Creá una cuenta gratis en Healthchecks.io.
+2. **Add Check** → **Period** 5 minutos, **Grace** 10 minutos → copiá la
+   **ping URL** (`https://hc-ping.com/...`).
+3. En **Integrations**, fijate que esté tu mail (viene el de la cuenta).
+4. Pegá la URL en el `.env`: `HEALTHCHECK_URL=https://hc-ping.com/...` y hacé
+   `pm2 restart cadi-bridge`. Al minuto, el check pasa a **up**.
+
+Cómo avisa:
+- **Compu apagada, sin internet o bridge caído:** no llegan avisos y, vencido
+  el plazo (5 + 10 minutos), Healthchecks te escribe.
+- **WhatsApp desconectado o n8n sin responder:** el bridge no dice "estoy bien".
+  Si sigue así 3 chequeos seguidos (~15 min), manda el motivo y te llega el mail
+  enseguida. Un corte corto no avisa.
+- **Hay que volver a escanear el QR** (`/health` dice `detenido`): avisa en el
+  primer chequeo, porque eso no se arregla solo.
+- Cuando todo vuelve a andar, Healthchecks te avisa que CaDI volvió. Su panel
+  guarda el historial de caídas, que sirve para contar los días seguidos sin
+  cortes.
+
 ### Qué hace el bridge cuando algo falla
 
 - **Se corta WhatsApp:** reconecta solo, esperando 2s, 4s, 8s... hasta 60s
