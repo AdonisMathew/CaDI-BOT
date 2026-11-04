@@ -63,6 +63,23 @@ const MAX_ANTIGUEDAD_SEG = num(process.env.MAX_ANTIGUEDAD_SEG, 300);
 // no lo necesita: el bridge guarda todos los mensajes por su cuenta, sin pasar por n8n.
 const REENVIAR_TODO = process.env.REENVIAR_TODO === 'true';
 
+// --- Aviso si CaDI se cae (Healthchecks.io, gratis) ---
+// Cada HEALTHCHECK_MIN minutos el bridge le avisa a Healthchecks que WhatsApp y n8n andan.
+// Si se apaga la compu, se corta internet o algo se traba, los avisos dejan de llegar y
+// Healthchecks te manda un mail. Vacío = apagado. Ver la sección 8 del README.
+const HEALTHCHECK_URL = (process.env.HEALTHCHECK_URL || '').trim().replace(/\/+$/, '');
+const HEALTHCHECK_MIN = Math.max(0.05, num(process.env.HEALTHCHECK_MIN, 5)); // acepta decimales (para pruebas)
+const N8N_HEALTH_URL = process.env.N8N_HEALTH_URL || urlDeSalud(N8N_WEBHOOK_URL);
+
+// "http://localhost:5678/webhook/cadi-grupo" -> "http://localhost:5678/healthz"
+function urlDeSalud(webhook) {
+  try {
+    return `${new URL(webhook).origin}/healthz`;
+  } catch {
+    return 'http://localhost:5678/healthz';
+  }
+}
+
 // --- Memoria (ver memoria.js) ---
 const CONTEXTO_MENSAJES = num(process.env.CONTEXTO_MENSAJES, 15); // últimos mensajes que ve el modelo
 const CONTEXTO_HORAS = num(process.env.CONTEXTO_HORAS, 12); // ...siempre que no tengan más de X horas
@@ -1253,6 +1270,57 @@ ipv6.on('error', (err) => {
 // =====================================================================
 // 7. Vigilancia y arranque
 // =====================================================================
+
+// Aviso de caídas: si WhatsApp y n8n andan, "estoy bien" a Healthchecks. Si algo falla 3 veces
+// seguidas (~15 min con el intervalo por defecto), le manda el motivo a /fail y Healthchecks
+// te escribe enseguida. Si hay que escanear el QR, avisa en el primer chequeo: eso no se arregla solo.
+// Si la compu está apagada no llega nada, y Healthchecks avisa igual cuando vence el plazo.
+let fallasSeguidas = 0;
+let falloAvisado = false;
+
+async function estadoDeSalud() {
+  if (detenido) return { ok: false, urgente: true, motivo: `WhatsApp: ${motivoDetenido}. Hay que volver a vincular con el QR.` };
+  if (!conectado) return { ok: false, motivo: 'WhatsApp: desconectado (reconectando)' };
+  try {
+    const r = await fetch(N8N_HEALTH_URL, { signal: AbortSignal.timeout(10000) });
+    if (!r.ok) return { ok: false, motivo: `n8n: ${N8N_HEALTH_URL} respondió HTTP ${r.status}` };
+  } catch (err) {
+    return { ok: false, motivo: `n8n: no responde en ${N8N_HEALTH_URL} (${err.message})` };
+  }
+  return { ok: true, motivo: 'WhatsApp y n8n OK' };
+}
+
+const avisarAHealthchecks = (sufijo, texto) =>
+  fetch(`${HEALTHCHECK_URL}${sufijo}`, { method: 'POST', body: texto, signal: AbortSignal.timeout(10000) });
+
+async function latido() {
+  const estado = await estadoDeSalud();
+  try {
+    if (estado.ok) {
+      if (fallasSeguidas) logger.info('💓 Chequeo de salud: todo volvió a andar');
+      fallasSeguidas = 0;
+      falloAvisado = false;
+      await avisarAHealthchecks('', `CaDI en línea: ${estado.motivo}`);
+      return;
+    }
+    fallasSeguidas++;
+    logger.warn({ motivo: estado.motivo, fallasSeguidas }, '💔 Chequeo de salud: algo no anda');
+    if (!falloAvisado && (estado.urgente || fallasSeguidas >= 3)) {
+      await avisarAHealthchecks('/fail', estado.motivo);
+      falloAvisado = true;
+      logger.warn('📧 Healthchecks avisado: te va a llegar un mail');
+    }
+  } catch (err) {
+    logger.warn({ motivo: err.message }, 'No se pudo avisar a Healthchecks (¿sin internet?)');
+  }
+}
+
+if (HEALTHCHECK_URL) {
+  // El primero, al minuto de arrancar: n8n tarda en levantar después de prender la compu
+  setTimeout(latido, Math.min(60, HEALTHCHECK_MIN * 60) * 1000);
+  setInterval(latido, HEALTHCHECK_MIN * 60 * 1000);
+  logger.info(`💓 Aviso de caídas activo: cada ${HEALTHCHECK_MIN} min a Healthchecks`);
+}
 
 // Watchdog: a veces Baileys se queda "conectando" para siempre sin avisar que
 // se cerró. Si pasan 2 minutos sin conexión y sin reintento en curso, forzamos uno.
