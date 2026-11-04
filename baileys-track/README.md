@@ -24,6 +24,7 @@ nunca con tu número personal ni con el chip de Cloud API que ya tenés andando.
 | Imágenes con IA | todos (con topes diarios) | "CaDI, hacé una imagen de un robot tomando mate" |
 | Buscar en internet | todos | "CaDI, ¿cómo está el clima?" (asume Tucumán) |
 | Sacar gente, cambiar quién escribe, borrar notas | solo admins (`ADMIN_JIDS`) | "CaDI, sacá a @Juan" |
+| Hablarle por privado | solo admins y `PRIVADO_PERMITIDOS` | al resto le contesta una negativa y te avisa |
 
 ## 1. Instalar dependencias
 
@@ -48,9 +49,21 @@ Dejá `USE_PAIRING_CODE=false` para el método más simple (QR).
 
 Cargá en `ADMIN_JIDS` los identificadores de los administradores de CaDI,
 separados por coma. Para obtenerlos, levantá el bridge, mandá un mensaje
-desde cada cuenta y copiá lo que aparece en la terminal como `senderJid:`
-(suele terminar en `@lid`). Esto vive solo en tu `.env`, que no se sube a
-GitHub.
+desde cada cuenta y copiá lo que aparece en la terminal como `identidades:`
+(el número termina en `@s.whatsapp.net` y el LID en `@lid`). Alcanza con una
+de las dos caras de cada persona: el bridge aprende la otra con la info de los
+grupos. Esto vive solo en tu `.env`, que no se sube a GitHub.
+
+**Privado solo para admins.** Por defecto (`PRIVADO_SOLO_ADMINS=true`), por
+privado solo le pueden hablar los admins y quienes pongas en
+`PRIVADO_PERMITIDOS`. Si le escribe otra persona, CaDI le contesta una vez con
+una negativa fija (sin pasar por n8n ni gastar Groq) y le avisa al dueño por
+privado: quién fue, cuándo y qué escribió. El aviso va a `AVISOS_JID` (si lo
+dejás vacío, al primer admin). Si esa persona sigue escribiendo, no hay más
+respuestas ni avisos durante `PRIVADO_AVISO_HORAS` (12 por defecto). La
+memoria ya estaba separada por chat (desde un privado no se puede buscar nada
+del grupo); esto evita que cualquiera con el número gaste la cuota gratis de
+Groq y de imágenes sin que te enteres.
 
 Para que CaDI pueda **crear imágenes** (gratis, ~170 por día):
 
@@ -135,7 +148,8 @@ Solo AI Agent Admin: Sacar del grupo · Cambiar modo del grupo · Borrar nota
 - **If** deja pasar solo los mensajes con texto que son para CaDI
   (`addressedToBot`). En grupos, eso es cuando la etiquetan con @, cuando
   responden a un mensaje suyo o cuando la nombran (`BOT_NAME`). En privado,
-  siempre.
+  siempre, si quien escribe tiene permiso (los privados sin permiso los
+  frena el bridge y nunca llegan a n8n).
 - **Armar contexto** (nodo Code) arma lo que lee el modelo. Acá está la
   **personalidad** de CaDI (es la única copia: editala acá). Separa dos cosas
   a propósito:
