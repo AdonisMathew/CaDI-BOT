@@ -251,6 +251,10 @@ export usa los nombres de tu agenda), la búsqueda por autor usa esos.
   escribe el aviso y su respuesta etiqueta a todos.
 - Entre dos convocatorias tienen que pasar 10 minutos (`TODOS_ESPERA_MIN`);
   si alguien lo intenta antes, CaDI reacciona con ⏳. Los admins no esperan.
+- Si hablan **del** @todos ("¿funcionó el @todos?", "por usar el @all"), no
+  cuenta como llamado: el bridge no etiqueta a nadie cuando la palabra viene
+  justo después de un artículo o posesivo (el, del, al, un, ese, este, lo, tu,
+  su, mi). Ver [`todos.js`](./todos.js).
 
 Desde agosto de 2026 WhatsApp tiene su propio `@all` (en grupos de hasta 32
 personas cualquiera lo puede usar; en grupos más grandes, solo admins).
