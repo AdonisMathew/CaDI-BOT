@@ -50,6 +50,11 @@ module.exports = {
         EXECUTIONS_DATA_MAX_AGE: '168',          // horas (7 días)
         EXECUTIONS_DATA_PRUNE_MAX_COUNT: '2000', // como mucho, 2000 ejecuciones guardadas
         N8N_DIAGNOSTICS_ENABLED: 'false',        // sin telemetría: un pedido de red menos al arrancar
+        // Hora de Tucumán para $now y para el horario del workflow "CaDI - Resumen diario"
+        GENERIC_TIMEZONE: 'America/Argentina/Tucuman',
+        // n8n solo atiende a esta compu (por defecto escucha en toda la red). Si algún día
+        // entrás al editor desde otra compu (por ejemplo, n8n en la netbook), borrá esta línea.
+        N8N_LISTEN_ADDRESS: '127.0.0.1',
         // Igual que en el bridge: preferir IPv4. Las llamadas a Groq que fallaron
         // cortaron siempre a los ~10s, que es el límite para *abrir* la conexión
         NODE_OPTIONS: '--dns-result-order=ipv4first',

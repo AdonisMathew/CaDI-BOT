@@ -2,9 +2,20 @@
 baileys-track/node_modules/
 baileys-track/.env
 baileys-track/auth_info_baileys/
+# Memoria de CaDI: los mensajes del grupo nunca van a GitHub
+baileys-track/data/
 
 # Contenido que no va a GitHub
 docs/demo-conversation.md
 
 # General
 *.log
+
+.env
+.env.*
+!.env.example
+auth_info_baileys/
+data/
+*.db
+*.db-wal
+*.db-shm
