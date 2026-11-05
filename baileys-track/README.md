@@ -151,8 +151,10 @@ Solo AI Agent Admin: Sacar del grupo · Cambiar modo del grupo · Borrar nota
   siempre, si quien escribe tiene permiso (los privados sin permiso los
   frena el bridge y nunca llegan a n8n).
 - **Armar contexto** (nodo Code) arma lo que lee el modelo. Acá está la
-  **personalidad** de CaDI (es la única copia: editala acá). Separa dos cosas
-  a propósito:
+  **personalidad** de CaDI (es la única copia: editala acá). Lo que más pesa
+  en cómo suena es la parte *Que no suenes a robot*: muletillas prohibidas,
+  reaccionar a un detalle del mensaje y no repetir la forma de las últimas
+  respuestas. Separa dos cosas a propósito:
   - `systemPrompt`: personalidad y reglas. **No cambia** entre mensajes,
     porque Groq guarda en caché el comienzo de cada pedido y los tokens
     cacheados **no cuentan** para el límite de 8.000 por minuto.
