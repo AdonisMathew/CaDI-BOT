@@ -11,6 +11,10 @@ WhatsApp (usuario) → Meta Cloud API → Webhook (n8n) → IF (filtra texto)
    → Message a model (Groq / LLaMA 3.3 70B) → Send message (Cloud API)
 ```
 
+> Groq dio de baja `llama-3.3-70b-versatile` el 16/08/2026. Para volver a
+> correr este track, cambiá el modelo del nodo **Message a model** por
+> `openai/gpt-oss-120b`, que es el reemplazo que recomienda Groq.
+
 - El rol de administrador se pasa como metadata oculta al final del prompt
   que recibe el modelo, para que CaDI ajuste el tono/permisos de su
   respuesta según quién le escribe.

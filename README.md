@@ -48,30 +48,34 @@ CaDI/
 
 - **Orquestación**: [n8n](https://n8n.io/) (self-hosted)
 - **Modelo de lenguaje** (vía Groq API):
-  - Track 1 (Cloud API): LLaMA 3.3 70B Versatile
-  - Track 2 (Baileys): `openai/gpt-oss-120b`
+  - Track 1 (Cloud API): LLaMA 3.3 70B Versatile, que Groq dio de baja el 16/08/2026
+    (su reemplazo es `openai/gpt-oss-120b`)
+  - Track 2 (Baileys): `openai/gpt-oss-120b`, con `openai/gpt-oss-20b` de respaldo
 - **Búsqueda web en tiempo real**: Tavily API
 - **Track 1**: WhatsApp Business Cloud API (Meta) + ngrok
 - **Track 2**: [Baileys](https://baileys.wiki/) + Express, con memoria en SQLite (`node:sqlite`),
-  imágenes con Cloudflare Workers AI (FLUX.1 schnell) y mapas de OpenStreetMap (Nominatim)
+  imágenes con Cloudflare Workers AI (FLUX.1 schnell), mapas de OpenStreetMap (Nominatim),
+  PM2 para que siga corriendo y Healthchecks.io para avisar por mail si se cae
 
 ## Estado actual
 
 | Track | Estado |
 |---|---|
-| Cloud API | ✅ Operativo — responde 1 a 1, distingue admin/no-admin, con búsqueda web |
-| Baileys | ✅ Operativo — número dedicado vinculado, en pruebas dentro del grupo real, con memoria y herramientas de WhatsApp |
+| Cloud API | ⏸️ En pausa — funcionaba 1 a 1, distinguía admin/no-admin y buscaba en la web; para volver a usarlo hay que cambiar el modelo, que Groq dio de baja |
+| Baileys | ✅ En uso dentro del grupo real — con memoria, herramientas de WhatsApp, privado solo para admins y aviso por mail si se cae |
 
 ### Funcionalidades
 
 **Implementadas**
 - Recepción y procesamiento de mensajes de WhatsApp
-- Respuestas generadas por IA con personalidad GLaDOS
+- Respuestas generadas por IA con la personalidad de CaDI (nació inspirada en GLaDOS; hoy tiene identidad propia: el "Proyecto CaDI")
 - System prompt configurable
 - Búsqueda web en tiempo real (Tavily), solo cuando la pregunta lo necesita (track Baileys)
 - Filtro de eventos de status
 - Webhook verificado y activo con Meta Cloud API
-- Filtro de permisos por número (admin vs. usuario regular)
+- Filtro de permisos admin vs. usuario regular (en el track Baileys, por número o por LID)
+- Por privado solo le hablan los admins: al resto, una negativa fija y un aviso al dueño (track Baileys)
+- Aviso por mail si CaDI se cae: compu apagada, sin internet, WhatsApp o n8n caídos (track Baileys)
 - En grupos, CaDI responde solo cuando la etiquetan, la nombran o le responden un mensaje (track Baileys)
 - Acciones de administrador sobre el grupo, solo para admins: sacar participantes, cambiar quién escribe, borrar notas (track Baileys)
 - Memoria del grupo: conversación reciente, resúmenes diarios, notas y búsqueda en el historial; importación del chat exportado (track Baileys)
