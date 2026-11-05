@@ -47,6 +47,7 @@ import {
   listaDeJids,
   textoAvisoPrivado,
 } from './privado.js';
+import { crearDetectorDeTodos } from './todos.js';
 
 // =====================================================================
 // 1. Config y helpers
@@ -493,10 +494,8 @@ function guardarDeCaDI(chat, result, texto) {
 
 // ---------- @todos ----------
 
-const regexTodos = new RegExp(
-  `(^|[\\s(¡¿])(${PALABRAS_TODOS.map(escaparRegex).join('|')})(?=$|[\\s.,;:!?)])`,
-  'i'
-);
+// "@todos vengan" es un llamado; "¿funcionó el @todos?" no (ver todos.js)
+const esLlamadoATodos = crearDetectorDeTodos(PALABRAS_TODOS);
 const ultimoTodos = new Map(); // grupo -> cuándo se etiquetó a todos por última vez
 // "grupo|idDelMensaje" -> hasta cuándo vale. Solo la respuesta a ESE mensaje etiqueta a todos
 // (n8n manda el id en quotedId), así ninguna otra respuesta lo hace por error.
@@ -744,7 +743,7 @@ function procesarEntrante(msg, type) {
   const cleanText = users.reduce((t, u) => t.replaceAll(`@${u}`, ''), text).trim() || text;
 
   const isAdmin = ids.some((id) => ADMIN_JIDS.includes(id));
-  const pideTodos = isGroup && regexTodos.test(text);
+  const pideTodos = isGroup && esLlamadoATodos(text);
 
   // Personas etiquetadas en el mensaje (sin contar a CaDI): son el objetivo
   // de acciones como "sacá a @Juan"

@@ -151,8 +151,10 @@ Solo AI Agent Admin: Sacar del grupo · Cambiar modo del grupo · Borrar nota
   siempre, si quien escribe tiene permiso (los privados sin permiso los
   frena el bridge y nunca llegan a n8n).
 - **Armar contexto** (nodo Code) arma lo que lee el modelo. Acá está la
-  **personalidad** de CaDI (es la única copia: editala acá). Separa dos cosas
-  a propósito:
+  **personalidad** de CaDI (es la única copia: editala acá). Lo que más pesa
+  en cómo suena es la parte *Que no suenes a robot*: muletillas prohibidas,
+  reaccionar a un detalle del mensaje y no repetir la forma de las últimas
+  respuestas. Separa dos cosas a propósito:
   - `systemPrompt`: personalidad y reglas. **No cambia** entre mensajes,
     porque Groq guarda en caché el comienzo de cada pedido y los tokens
     cacheados **no cuentan** para el límite de 8.000 por minuto.
@@ -249,6 +251,10 @@ export usa los nombres de tu agenda), la búsqueda por autor usa esos.
   escribe el aviso y su respuesta etiqueta a todos.
 - Entre dos convocatorias tienen que pasar 10 minutos (`TODOS_ESPERA_MIN`);
   si alguien lo intenta antes, CaDI reacciona con ⏳. Los admins no esperan.
+- Si hablan **del** @todos ("¿funcionó el @todos?", "por usar el @all"), no
+  cuenta como llamado: el bridge no etiqueta a nadie cuando la palabra viene
+  justo después de un artículo o posesivo (el, del, al, un, ese, este, lo, tu,
+  su, mi). Ver [`todos.js`](./todos.js).
 
 Desde agosto de 2026 WhatsApp tiene su propio `@all` (en grupos de hasta 32
 personas cualquiera lo puede usar; en grupos más grandes, solo admins).
