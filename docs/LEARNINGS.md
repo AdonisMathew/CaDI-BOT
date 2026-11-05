@@ -40,6 +40,13 @@ con los nombres de la arquitectura documentada.
 Hay que actualizar el Callback URL en Meta al empezar cada sesión de
 trabajo si no se paga un dominio fijo de ngrok.
 
+**El modelo del Track 1 dejó de existir**
+Groq dio de baja `llama-3.3-70b-versatile` el 16/08/2026 y recomienda
+`openai/gpt-oss-120b` en su lugar. El workflow de la Cloud API sigue
+pidiendo el modelo viejo, así que para volver a correrlo hay que cambiarlo en
+el nodo del modelo. Lección: un modelo gratis tiene fecha de vencimiento, y
+conviene revisar de vez en cuando la página de deprecaciones del proveedor.
+
 ## Decisión de arquitectura: por qué se pasó a Baileys
 
 La limitación central: un número de la Cloud API no puede ser agregado
@@ -83,6 +90,8 @@ mismo en el grupo y en privado, así que se usa directamente como
 identificador. La lista de admins vive en `ADMIN_JIDS` del `.env` (fuera de
 GitHub), y para obtener cada valor alcanza con mirar el `senderJid:` que
 imprime el bridge.
+Actualización (noviembre 2026): sí había forma de unir las dos caras de cada
+persona; ver *Las dos caras de cada persona: número y LID*, más abajo.
 
 **Expresiones de n8n sin `{{ }}`: se comparan como texto literal**
 Síntoma: las condiciones del IF Admin daban siempre `false`, por más que
@@ -120,7 +129,8 @@ El bridge reenviaba a n8n cualquier mensaje. Ahora calcula
 `addressedToBot`: en grupos solo vale `true` si la etiquetan con @ (se
 compara tanto su número como su `@lid`), si responden a un mensaje suyo o
 si la nombran. Para el nombre se usa un límite de palabra (`\bCaDI\b`),
-así "cadista" no la activa. En privado siempre responde.
+así "cadista" no la activa. En privado siempre responde (desde noviembre de
+2026, solo a quien tiene permiso: ver *El privado era un riesgo*).
 
 **Los permisos los decide el sistema, no el modelo**
 Al principio el nivel de acceso era una etiqueta dentro del prompt, y el
@@ -268,4 +278,64 @@ que el bridge ya había visto en vivo y los mensajes idénticos de la misma
 persona en el mismo minuto (por ejemplo, varias fotos seguidas), porque el
 export de Android no trae segundos. La búsqueda sigue siendo instantánea
 gracias al índice FTS5.
+
+## Seguridad y estabilidad (noviembre 2026)
+
+**Quince días caída sin que nadie se enterara**
+Síntoma: CaDI no contestaba y se sospechaba que había vencido el QR. No era
+eso: el bridge estuvo apagado del 20/10 al 4/11. Ningún archivo de la sesión
+cambió en ese lapso y, al volver, reconectó sola, sin pedir QR.
+Causa: en Windows, PM2 no arranca solo al prender la compu, y nadie se entera
+de una caída si para saberlo hay que mirar `pm2 status` o `/health`.
+Solución: un aviso que funcione aunque nadie mire. El bridge le avisa a
+Healthchecks.io (gratis) cada 5 minutos que WhatsApp y n8n andan; si deja de
+avisar, llega un mail. Un monitor que consulta desde afuera (tipo UptimeRobot)
+no sirve acá, porque el bridge solo escucha en la compu: con este modelo el
+aviso sale de adentro hacia afuera y funciona detrás del router. Para no
+alarmar por un corte de un minuto, el motivo de la falla se manda recién a la
+tercera falla seguida, salvo que haya que escanear el QR, que no se arregla
+solo. Al volver entraron unos 2.500 mensajes atrasados: quedaron en la memoria
+y no se contestaron, tal como estaba previsto (`MAX_ANTIGUEDAD_SEG`).
+
+**El privado era un riesgo, pero no el que parecía**
+La idea era cerrar el privado para que nadie pudiera sacarle a CaDI lo que se
+habló en el grupo. Al revisar el código apareció que eso ya era imposible: la
+memoria está separada por chat, y el `chatId` de las herramientas sale del
+mensaje, no del modelo. El riesgo real era otro: cualquiera con el número de
+CaDI podía gastar la cuota gratis de Groq (1.000 pedidos y 200.000 tokens por
+día) y la de imágenes, sin que nadie se enterara. Solución: el bridge frena el
+privado de quien no es admin **antes** de n8n, así que no gasta ni un token.
+Le contesta una negativa fija una sola vez, le avisa al dueño quién fue y qué
+escribió, y si la persona insiste no pasa nada más durante 12 horas. Lección:
+antes de levantar una barrera, conviene ver qué está protegiendo de verdad,
+porque eso define dónde ponerla.
+
+**Las dos caras de cada persona: número y LID**
+En septiembre se dio por hecho que Baileys 6.7.23 no podía unir un `@lid` con
+un número de teléfono. Revisando su código apareció que sí trae pistas: la
+clave de cada mensaje incluye `senderPn`/`participantPn` cuando WhatsApp los
+manda, y la info de cada grupo trae el `jid` (número) y el `lid` de cada
+integrante. El bridge junta esos pares (carga la info de los grupos apenas
+conecta) y `ADMIN_JIDS` acepta cualquiera de las dos caras. Lo usan el chequeo
+de admin, la protección de *Sacar del grupo* y `MEMORIA_EXCLUIR`. En los grupos
+de CaDI aparecieron 16 pares: WhatsApp no muestra el número de todos, así que
+sigue siendo más seguro cargar la cara con la que cada admin llega (el log la
+muestra en `identidades`).
+
+**Probar el bridge sin WhatsApp: cambiar un import**
+`index.js` arranca y se conecta apenas se carga, así que no se puede probar
+por partes sin tocarlo. Lo que se hizo: un *hook* de módulos de Node
+(`module.register`) que, solo para `index.js`, cambia `import 'baileys'` por un
+archivo que reexporta la Baileys real (para armar mensajes de verdad) pero con
+un socket falso, más un n8n y un Healthchecks falsos. Así se probaron 20
+escenarios del bridge entero, sin un solo cambio en el código de producción.
+La lógica nueva quedó además en un módulo aparte (`privado.js`) con pruebas
+propias (`npm test`).
+
+**Probar dos PR juntos antes de mergear**
+Los PR del privado y del aviso de caídas apuntaban a la misma rama. Para no
+mergear a ciegas, se probaron juntos en una rama local de prueba
+(`git switch -c prueba origin/...`, un `git merge --no-edit` por cada PR) y
+se mergearon en GitHub recién cuando anduvieron. El `--no-edit` evita que Git
+abra el editor para el mensaje del merge.
 
